@@ -1,0 +1,3 @@
+cargo tarpaulin --out Html
+RUSTFLAGS=-Zprint-type-sizes cargo build --release
+Valgrind

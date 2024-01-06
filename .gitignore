@@ -1,0 +1,6 @@
+/target
+.vscode
+.idea
+.VSCodeCounter
+tarpaulin-report.html
+tests/output
