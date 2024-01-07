@@ -16,15 +16,16 @@ cargo tarpaulin --out Html
 测试结果：
 
 ```shell
-12050@learning MINGW64 ~/Documents/code/rust/wasm
+12050@learning MINGW64 ~/Documents/code/rust/wasm (main)
 $ cargo tarpaulin --out Html
-Jan 06 21:47:11.501  INFO cargo_tarpaulin::config: Creating config
-Jan 06 21:47:11.698  INFO cargo_tarpaulin: Running Tarpaulin
-Jan 06 21:47:11.698  INFO cargo_tarpaulin: Building project
-Jan 06 21:47:11.699  INFO cargo_tarpaulin::cargo: Cleaning project
+Jan 07 22:18:19.958  INFO cargo_tarpaulin::config: Creating config
+Jan 07 22:18:20.789  INFO cargo_tarpaulin: Running Tarpaulin
+Jan 07 22:18:20.789  INFO cargo_tarpaulin: Building project
+Jan 07 22:18:20.789  INFO cargo_tarpaulin::cargo: Cleaning project
    Compiling proc-macro2 v1.0.75
    Compiling unicode-ident v1.0.12
    Compiling cfg-if v1.0.0
+   Compiling thiserror v1.0.56
    Compiling ppv-lite86 v0.2.17
    Compiling serde v1.0.194
    Compiling serde_json v1.0.108
@@ -35,23 +36,14 @@ Jan 06 21:47:11.699  INFO cargo_tarpaulin::cargo: Cleaning project
    Compiling rand_core v0.6.4
    Compiling rand_chacha v0.3.1
    Compiling rand v0.8.5
-   Compiling wasm v0.1.0 (C:\Users\12050\Documents\code\rust\wasm)
    Compiling quote v1.0.35
    Compiling syn v2.0.47
+   Compiling thiserror-impl v1.0.56
    Compiling serde_derive v1.0.194
-   Finished test [unoptimized + debuginfo] target(s) in 20.68s Jan 06 21:47:32.999  INFO cargo_tarpaulin::process_handling: running C:\Users\12050\Documents\code\rust\wasm\target\debug\deps\wasm-957f525bed449c69.exe
-Jan 06 21:47:32.999  INFO cargo_tarpaulin::process_handling: Setting LLVM_PROFILE_FILE
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-Jan 06 21:47:33.020  INFO cargo_tarpaulin::statemachine::instrumented: For binary: target\debug\deps\wasm-957f525bed449c69.exe
-Jan 06 21:47:33.020  INFO cargo_tarpaulin::statemachine::instrumented: Generated: target\tarpaulin\profraws\wasm-957f525bed449c69.exe_18405242399302775433_0-16204.profraw
-Jan 06 21:47:33.020  INFO cargo_tarpaulin::statemachine::instrumented: Merging coverage reports
-Jan 06 21:47:33.020  WARN cargo_tarpaulin::statemachine::instrumented: profraw file has no records after merging. If this is unexpected it may be caused by a panic or signal used in a test that prevented the LLVM instrumentation runtime from serialising results
-Jan 06 21:47:33.021  INFO cargo_tarpaulin::process_handling: running C:\Users\12050\Documents\code\rust\wasm\target\debug\deps\wasm-3319c057e424c8c4.exe
-Jan 06 21:47:33.021  INFO cargo_tarpaulin::process_handling: Setting LLVM_PROFILE_FILE
+   Compiling wasm v0.1.0 (C:\Users\12050\Documents\code\rust\wasm)
+    Finished test [unoptimized + debuginfo] target(s) in 23.25s
+Jan 07 22:19:09.819  INFO cargo_tarpaulin::process_handling: running C:\Users\12050\Documents\code\rust\wasm\target\debug\deps\wasm-dd7ce5dfb30ef176.exe
+Jan 07 22:19:09.819  INFO cargo_tarpaulin::process_handling: Setting LLVM_PROFILE_FILE
 
 running 4 tests
 test binary::leb128::test::test_decode_int ... ok
@@ -61,12 +53,23 @@ test binary::leb128::test::test_encode_unsigned ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-Jan 06 21:47:33.040  INFO cargo_tarpaulin::statemachine::instrumented: For binary: target\debug\deps\wasm-3319c057e424c8c4.exe
-Jan 06 21:47:33.040  INFO cargo_tarpaulin::statemachine::instrumented: Generated: target\tarpaulin\profraws\wasm-3319c057e424c8c4.exe_11217018863297095953_0-28500.profraw
-Jan 06 21:47:33.040  INFO cargo_tarpaulin::statemachine::instrumented: Merging coverage reports
-Jan 06 21:47:33.042  INFO cargo_tarpaulin::statemachine::instrumented: Mapping coverage data to source
-Jan 06 21:47:33.333  INFO cargo_tarpaulin::process_handling: running C:\Users\12050\Documents\code\rust\wasm\target\debug\deps\spec-68c31406ce487fff.exe
-Jan 06 21:47:33.333  INFO cargo_tarpaulin::process_handling: Setting LLVM_PROFILE_FILE
+Jan 07 22:19:09.836  INFO cargo_tarpaulin::statemachine::instrumented: For binary: target\debug\deps\wasm-dd7ce5dfb30ef176.exe
+Jan 07 22:19:09.836  INFO cargo_tarpaulin::statemachine::instrumented: Generated: target\tarpaulin\profraws\wasm-dd7ce5dfb30ef176.exe_2177828400676091894_0-13980.profraw
+Jan 07 22:19:09.836  INFO cargo_tarpaulin::statemachine::instrumented: Merging coverage reports
+Jan 07 22:19:09.838  INFO cargo_tarpaulin::statemachine::instrumented: Mapping coverage data to source
+Jan 07 22:19:10.138  INFO cargo_tarpaulin::process_handling: running C:\Users\12050\Documents\code\rust\wasm\target\debug\deps\wasm-406cad1d36eac3f6.exe
+Jan 07 22:19:10.138  INFO cargo_tarpaulin::process_handling: Setting LLVM_PROFILE_FILE
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+Jan 07 22:19:10.152  INFO cargo_tarpaulin::statemachine::instrumented: For binary: target\debug\deps\wasm-406cad1d36eac3f6.exe
+Jan 07 22:19:10.152  INFO cargo_tarpaulin::statemachine::instrumented: Generated: target\tarpaulin\profraws\wasm-406cad1d36eac3f6.exe_18405242399302775433_0-13716.profraw
+Jan 07 22:19:10.153  INFO cargo_tarpaulin::statemachine::instrumented: Merging coverage reports
+Jan 07 22:19:10.153  WARN cargo_tarpaulin::statemachine::instrumented: profraw file has no records after merging. If this is unexpected it may be caused by a panic or signal used in a test that prevented the LLVM instrumentation runtime from serialising results
+Jan 07 22:19:10.153  INFO cargo_tarpaulin::process_handling: running C:\Users\12050\Documents\code\rust\wasm\target\debug\deps\spec-5c6ae22aa31575e3.exe
+Jan 07 22:19:10.153  INFO cargo_tarpaulin::process_handling: Setting LLVM_PROFILE_FILE
 
 running 144 tests
 test test::test_address ... ok
@@ -214,47 +217,47 @@ test test::test_utf8_import_field ... ok
 test test::test_utf8_import_module ... ok
 test test::test_utf8_invalid_encoding ... ok
 
-test result: ok. 144 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.25s
+test result: ok. 144 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.47s
 
-Jan 06 21:47:40.683  INFO cargo_tarpaulin::statemachine::instrumented: For binary: target\debug\deps\spec-68c31406ce487fff.exe
-Jan 06 21:47:40.683  INFO cargo_tarpaulin::statemachine::instrumented: Generated: target\tarpaulin\profraws\spec-68c31406ce487fff.exe_13647600840493404204_0-22736.profraw
-Jan 06 21:47:40.683  INFO cargo_tarpaulin::statemachine::instrumented: Merging coverage reports
-Jan 06 21:47:40.692  INFO cargo_tarpaulin::statemachine::instrumented: Mapping coverage data to source
-Jan 06 21:47:41.317  INFO cargo_tarpaulin::report: Coverage Results:
+Jan 07 22:19:17.674  INFO cargo_tarpaulin::statemachine::instrumented: For binary: target\debug\deps\spec-5c6ae22aa31575e3.exe
+Jan 07 22:19:17.674  INFO cargo_tarpaulin::statemachine::instrumented: Generated: target\tarpaulin\profraws\spec-5c6ae22aa31575e3.exe_10797088803361264541_0-19196.profraw
+Jan 07 22:19:17.675  INFO cargo_tarpaulin::statemachine::instrumented: Merging coverage reports
+Jan 07 22:19:17.683  INFO cargo_tarpaulin::statemachine::instrumented: Mapping coverage data to source
+Jan 07 22:19:18.323  INFO cargo_tarpaulin::report: Coverage Results:
 || Tested/Total Lines:
-|| src\binary\decode.rs: 568/599
-|| src\binary\encode.rs: 0/395
-|| src\binary\instruction.rs: 11/12
-|| src\binary\leb128.rs: 37/46
-|| src\binary\module.rs: 31/73
-|| src\binary\reader.rs: 60/63
-|| src\binary\section.rs: 22/31
-|| src\binary\types.rs: 35/46
-|| src\binary\validate.rs: 0/120
-|| src\execution\importer.rs: 2/12
-|| src\execution\inst\element.rs: 3/3
-|| src\execution\inst\function.rs: 15/25
-|| src\execution\inst\global.rs: 9/14
-|| src\execution\inst\memory.rs: 75/83
-|| src\execution\inst\table.rs: 34/41
-|| src\execution\instr\control.rs: 105/115
-|| src\execution\instr\exec.rs: 437/440
-|| src\execution\instr\memory.rs: 127/127
-|| src\execution\instr\numeric.rs: 484/484
-|| src\execution\instr\parametric.rs: 11/11
-|| src\execution\instr\reference.rs: 9/9
-|| src\execution\instr\table.rs: 47/47
-|| src\execution\instr\trunc_sat.rs: 69/69
-|| src\execution\instr\variable.rs: 22/22
-|| src\execution\instr\vector.rs: 1501/1505
-|| src\execution\mod.rs: 5/5
-|| src\execution\stack\frame.rs: 14/15
-|| src\execution\stack\operand.rs: 38/38
-|| src\execution\types.rs: 107/141
-|| src\execution\vm.rs: 159/186
-|| src\main.rs: 0/1
+|| src\binary\decode.rs: 568/597 +0.00%
+|| src\binary\encode.rs: 363/397 +0.00%
+|| src\binary\instruction.rs: 11/12 +0.00%
+|| src\binary\leb128.rs: 57/58 +0.00%
+|| src\binary\module.rs: 54/73 +0.00%
+|| src\binary\reader.rs: 52/63 +0.00%
+|| src\binary\section.rs: 22/31 +0.00%
+|| src\binary\types.rs: 36/46 +0.00%
+|| src\binary\validate.rs: 0/120 +0.00%
+|| src\execution\importer.rs: 2/12 +0.00%
+|| src\execution\inst\element.rs: 3/3 +0.00%
+|| src\execution\inst\function.rs: 15/25 +0.00%
+|| src\execution\inst\global.rs: 9/14 +0.00%
+|| src\execution\inst\memory.rs: 75/83 +0.00%
+|| src\execution\inst\table.rs: 34/41 +0.00%
+|| src\execution\instr\control.rs: 105/115 +0.00%
+|| src\execution\instr\exec.rs: 437/440 +0.00%
+|| src\execution\instr\memory.rs: 127/127 +0.00%
+|| src\execution\instr\numeric.rs: 484/484 +0.00%
+|| src\execution\instr\parametric.rs: 11/11 +0.00%
+|| src\execution\instr\reference.rs: 9/9 +0.00%
+|| src\execution\instr\table.rs: 47/47 +0.00%
+|| src\execution\instr\trunc_sat.rs: 69/69 +0.00%
+|| src\execution\instr\variable.rs: 22/22 +0.00%
+|| src\execution\instr\vector.rs: 1501/1505 +0.00%
+|| src\execution\mod.rs: 5/5 +0.00%
+|| src\execution\stack\frame.rs: 14/15 +0.00%
+|| src\execution\stack\operand.rs: 38/38 +0.00%
+|| src\execution\types.rs: 107/141 +0.00%
+|| src\execution\vm.rs: 155/186 +0.00%
+|| src\main.rs: 0/1 +0.00%
 ||
-84.49% coverage, 4037/4778 lines covered
+92.53% coverage, 4432/4790 lines covered, +0.00% change in coverage
 ```
 
 # done
@@ -266,7 +269,7 @@ Jan 06 21:47:41.317  INFO cargo_tarpaulin::report: Coverage Results:
 
 - trap
 - validate
-- AssertExhaustion、AssertTrap、AssertInvalid、AssertMalformed、AssertUninstantiable
+- AssertExhaustion、AssertTrap、AssertInvalid、AssertUninstantiable
 - wasi
 - dump
 - wat 的解析

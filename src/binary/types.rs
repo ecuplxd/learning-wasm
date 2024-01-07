@@ -1,4 +1,6 @@
+use super::errors::DecodeErr;
 use super::instruction::BlockType;
+use super::reader::DecodeResult;
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -140,12 +142,12 @@ pub enum Mut {
     Var = 0x01,
 }
 
-impl From<u8> for Mut {
-    fn from(v: u8) -> Self {
+impl Mut {
+    pub fn from_u8(v: u8) -> DecodeResult<Self> {
         match v {
-            0x00 => Self::Const,
-            0x01 => Self::Var,
-            _ => panic!("无效的可变性描述：{}", v),
+            0x00 => Ok(Self::Const),
+            0x01 => Ok(Self::Var),
+            _ => Err(DecodeErr::InvalidMut(v))?,
         }
     }
 }

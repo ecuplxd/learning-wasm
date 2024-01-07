@@ -1,4 +1,6 @@
+use super::errors::DecodeErr;
 use super::instruction::Instruction;
+use super::reader::DecodeResult;
 use super::types::{GlobalType, MemType, TableType, ValType};
 use crate::execution::types::{ValInst, ValInsts};
 
@@ -32,23 +34,23 @@ pub enum Section {
     DataCount,
 }
 
-impl From<u8> for Section {
-    fn from(v: u8) -> Self {
+impl Section {
+    pub fn from_u8(v: u8) -> DecodeResult<Self> {
         match v {
-            0x00 => Self::Custom,
-            0x01 => Self::Type,
-            0x02 => Self::Import,
-            0x03 => Self::Function,
-            0x04 => Self::Table,
-            0x05 => Self::Memory,
-            0x06 => Self::Global,
-            0x07 => Self::Export,
-            0x08 => Self::Start,
-            0x09 => Self::Element,
-            0x0a => Self::Code,
-            0x0b => Self::Data,
-            0x0c => Self::DataCount,
-            _ => panic!("未知的段类型：{:?}", v),
+            0x00 => Ok(Self::Custom),
+            0x01 => Ok(Self::Type),
+            0x02 => Ok(Self::Import),
+            0x03 => Ok(Self::Function),
+            0x04 => Ok(Self::Table),
+            0x05 => Ok(Self::Memory),
+            0x06 => Ok(Self::Global),
+            0x07 => Ok(Self::Export),
+            0x08 => Ok(Self::Start),
+            0x09 => Ok(Self::Element),
+            0x0a => Ok(Self::Code),
+            0x0b => Ok(Self::Data),
+            0x0c => Ok(Self::DataCount),
+            _ => Err(DecodeErr::UnexpectedSection(v))?,
         }
     }
 }

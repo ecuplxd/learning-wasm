@@ -1,5 +1,6 @@
 pub mod decode;
 pub mod encode;
+mod errors;
 pub mod instruction;
 mod leb128;
 pub mod module;

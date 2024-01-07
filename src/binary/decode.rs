@@ -1,5 +1,6 @@
+use super::errors::DecodeErr;
 use super::instruction::{Block, BlockType, BrTableArg, IfBlock, Instruction, MemoryArg};
-use super::reader::{ReadResult, Reader};
+use super::reader::{DecodeResult, Reader};
 use super::section::{
     CodeSeg, CustomSeg, DataMode, DataSeg, ElementMode, ElementSeg, ExportDesc, ExportSeg, Expr,
     FuncIdx, GlobalIdx, GlobalSeg, ImportDesc, ImportSeg, LabelIdx, Locals, MemIdx, TableIdx, TypeIdx,
@@ -9,9 +10,9 @@ use super::types::{FuncType, GlobalType, Limits, MemType, Mut, RefType, TableTyp
 pub trait Decode<T = Self> {
     type Output = T;
 
-    fn decode(reader: &mut Reader) -> ReadResult<Self::Output>;
+    fn decode(reader: &mut Reader) -> DecodeResult<Self::Output>;
 
-    fn decodes(reader: &mut Reader) -> ReadResult<Vec<Self::Output>> {
+    fn decodes(reader: &mut Reader) -> DecodeResult<Vec<Self::Output>> {
         let total = reader.get_leb_u32()?;
         let items = (0..total).map(|_| Self::decode(reader)).collect();
 
@@ -20,7 +21,7 @@ pub trait Decode<T = Self> {
 }
 
 impl Decode for CustomSeg {
-    fn decode(reader: &mut Reader) -> ReadResult<CustomSeg> {
+    fn decode(reader: &mut Reader) -> DecodeResult<CustomSeg> {
         let custom = CustomSeg {
             name: reader.get_name()?,
             data: reader.remain()?,
@@ -31,10 +32,10 @@ impl Decode for CustomSeg {
 }
 
 impl Decode for FuncType {
-    fn decode(reader: &mut Reader) -> ReadResult<FuncType> {
+    fn decode(reader: &mut Reader) -> DecodeResult<FuncType> {
         match reader.get_u8()? {
             0x60 => (),
-            val => panic!("无效的函数类型：{:?}", val),
+            val => Err(DecodeErr::InvalidType(val))?,
         }
 
         let func = FuncType {
@@ -47,14 +48,14 @@ impl Decode for FuncType {
 }
 
 impl Decode for ValType {
-    fn decode(reader: &mut Reader) -> ReadResult<ValType> {
+    fn decode(reader: &mut Reader) -> DecodeResult<ValType> {
         Ok(ValType::from(reader.get_u8()?))
     }
 }
 
 /// import -> module -> name -> desc
 impl Decode for ImportSeg {
-    fn decode(reader: &mut Reader) -> ReadResult<ImportSeg> {
+    fn decode(reader: &mut Reader) -> DecodeResult<ImportSeg> {
         let module = reader.get_name()?;
         let name = reader.get_name()?;
         let desc = match reader.get_u8()? {
@@ -62,7 +63,7 @@ impl Decode for ImportSeg {
             0x01 => ImportDesc::Table(TableType::decode(reader)?),
             0x02 => ImportDesc::Mem(MemType::decode(reader)?),
             0x03 => ImportDesc::Global(GlobalType::decode(reader)?),
-            value => panic!("无效的导入类型：{}", value),
+            kind => Err(DecodeErr::InvalidImportKind(kind))?,
         };
 
         let import = ImportSeg { module, name, desc };
@@ -73,17 +74,17 @@ impl Decode for ImportSeg {
 
 /// idx
 impl Decode for TypeIdx {
-    fn decode(reader: &mut Reader) -> ReadResult<TypeIdx> {
+    fn decode(reader: &mut Reader) -> DecodeResult<TypeIdx> {
         reader.get_leb_u32()
     }
 }
 
 impl Decode for TableType {
-    fn decode(reader: &mut Reader) -> ReadResult<TableType> {
+    fn decode(reader: &mut Reader) -> DecodeResult<TableType> {
         let elem_type = match reader.get_u8()? {
             0x70 => RefType::FuncRef,
             0x6f => RefType::ExternRef,
-            elem_type => panic!("无效的表元素类型：{}", elem_type),
+            elem_type => Err(DecodeErr::InvalidTableElemType(elem_type))?,
         };
         let table = TableType {
             elem_type,
@@ -95,7 +96,7 @@ impl Decode for TableType {
 }
 
 impl Decode for Limits {
-    fn decode(reader: &mut Reader) -> ReadResult<Limits> {
+    fn decode(reader: &mut Reader) -> DecodeResult<Limits> {
         // 0，只指定 min，1 指定 min + max
         let with_max = reader.get_leb_u32()? == 1;
         let limits = Limits {
@@ -111,7 +112,7 @@ impl Decode for Limits {
 }
 
 impl Decode for GlobalSeg {
-    fn decode(reader: &mut Reader) -> ReadResult<GlobalSeg> {
+    fn decode(reader: &mut Reader) -> DecodeResult<GlobalSeg> {
         let global = GlobalSeg {
             type_: GlobalType::decode(reader)?,
             init_expr: Vec::<Expr>::decode(reader)?,
@@ -122,7 +123,7 @@ impl Decode for GlobalSeg {
 }
 
 impl Decode for GlobalType {
-    fn decode(reader: &mut Reader) -> ReadResult<GlobalType> {
+    fn decode(reader: &mut Reader) -> DecodeResult<GlobalType> {
         let global_type = GlobalType {
             val_type: ValType::decode(reader)?,
             mut_: Mut::decode(reader)?,
@@ -133,20 +134,20 @@ impl Decode for GlobalType {
 }
 
 impl Decode for Mut {
-    fn decode(reader: &mut Reader) -> ReadResult<Mut> {
-        Ok(Mut::from(reader.get_u8()?))
+    fn decode(reader: &mut Reader) -> DecodeResult<Mut> {
+        Mut::from_u8(reader.get_u8()?)
     }
 }
 
 impl Decode for ExportSeg {
-    fn decode(reader: &mut Reader) -> ReadResult<ExportSeg> {
+    fn decode(reader: &mut Reader) -> DecodeResult<ExportSeg> {
         let name = reader.get_name()?;
         let desc = match reader.get_u8()? {
             0x00 => ExportDesc::Func(FuncIdx::decode(reader)?),
             0x01 => ExportDesc::Table(TableIdx::decode(reader)?),
             0x02 => ExportDesc::Mem(MemIdx::decode(reader)?),
             0x03 => ExportDesc::Global(GlobalIdx::decode(reader)?),
-            kind => panic!("未知的导出类型：{}", kind),
+            kind => Err(DecodeErr::InvalidExportKind(kind))?,
         };
         let export = ExportSeg { name, desc };
 
@@ -155,11 +156,11 @@ impl Decode for ExportSeg {
 }
 
 impl Decode for ElementSeg {
-    fn decode(reader: &mut Reader) -> ReadResult<ElementSeg> {
+    fn decode(reader: &mut Reader) -> DecodeResult<ElementSeg> {
         let flag = reader.get_leb_u32()?;
 
         if flag > 7 {
-            panic!("无效的元素段 flag：{}", flag);
+            Err(DecodeErr::InvalidElemMode(flag))?
         }
 
         let mode = match flag {
@@ -206,7 +207,7 @@ impl Decode for ElementSeg {
 }
 
 impl Decode for CodeSeg {
-    fn decode(reader: &mut Reader) -> ReadResult<CodeSeg> {
+    fn decode(reader: &mut Reader) -> DecodeResult<CodeSeg> {
         let size = reader.get_leb_u32()?;
         let body_bytes = reader.bytes(size as usize)?;
         let mut body_reader = Reader::new(&body_bytes);
@@ -222,7 +223,7 @@ impl Decode for CodeSeg {
 }
 
 impl Decode for Locals {
-    fn decode(reader: &mut Reader) -> ReadResult<Locals> {
+    fn decode(reader: &mut Reader) -> DecodeResult<Locals> {
         let local = Locals {
             n: reader.get_leb_u32()?,
             value_type: ValType::decode(reader)?,
@@ -235,12 +236,12 @@ impl Decode for Locals {
 impl Decode for Vec<Expr> {
     type Output = Expr;
 
-    fn decode(reader: &mut Reader) -> ReadResult<Expr> {
+    fn decode(reader: &mut Reader) -> DecodeResult<Expr> {
         let (exprs, last_instr) = Expr::decode(reader)?;
 
         match last_instr {
             Instruction::End => Ok(exprs),
-            _ => panic!("未终结的表达式块"),
+            _ => Err(DecodeErr::ExprUnexpectedEnd)?,
         }
     }
 }
@@ -248,7 +249,7 @@ impl Decode for Vec<Expr> {
 impl Decode for Expr {
     type Output = (Expr, Instruction);
 
-    fn decode(reader: &mut Reader) -> ReadResult<(Expr, Instruction)> {
+    fn decode(reader: &mut Reader) -> DecodeResult<(Expr, Instruction)> {
         let mut exprs = vec![];
         let mut last_instr = Instruction::Nop;
 
@@ -270,11 +271,11 @@ impl Decode for Expr {
 }
 
 impl Decode for DataSeg {
-    fn decode(reader: &mut Reader) -> ReadResult<DataSeg> {
+    fn decode(reader: &mut Reader) -> DecodeResult<DataSeg> {
         let flag = reader.get_leb_u32()?;
 
         if flag > 2 {
-            panic!("无效的数据段 flag：{}", flag);
+            Err(DecodeErr::InvalidDataMode(flag))?
         }
 
         let mode = match flag {
@@ -304,7 +305,7 @@ impl Decode for DataSeg {
 }
 
 impl Decode for Instruction {
-    fn decode(reader: &mut Reader) -> ReadResult<Instruction> {
+    fn decode(reader: &mut Reader) -> DecodeResult<Instruction> {
         let instruction = match reader.get_u8()? {
             0x00 => Instruction::Unreachable,
             0x01 => Instruction::Nop,
@@ -508,7 +509,7 @@ impl Decode for Instruction {
                 0x0f => Instruction::TableGrow(reader.get_leb_u32()?),
                 0x10 => Instruction::TableSize(reader.get_leb_u32()?),
                 0x11 => Instruction::TableFill(reader.get_leb_u32()?),
-                opcode => panic!("0xfc 段，未知的指令码：{:x}", opcode),
+                opcode => Err(DecodeErr::UnknownOpcode(0xfc, opcode as u8))?,
             },
             0xfd => match reader.get_u8()? {
                 0x00 => Instruction::V128Load(MemoryArg::decode(reader)?),
@@ -747,9 +748,9 @@ impl Decode for Instruction {
                 0xfd => Instruction::I32x4TruncSatF64x2UZero(reader.get_u8()?),
                 0xfe => Instruction::F64x2ConvertLowI32x4S(reader.get_u8()?),
                 0xff => Instruction::F64x2ConvertLowI32x4U(reader.get_u8()?),
-                opcode => panic!("0xfd 段，未知的指令码：{:0x}", opcode),
+                opcode => Err(DecodeErr::UnknownOpcode(0xfd, opcode))?,
             },
-            prefix => panic!("未知的指令码前缀：{:0x}", prefix),
+            prefix => Err(DecodeErr::UnknownOpcodePrefix(prefix))?,
         };
 
         Ok(instruction)
@@ -757,7 +758,7 @@ impl Decode for Instruction {
 }
 
 impl Decode for MemoryArg {
-    fn decode(reader: &mut Reader) -> ReadResult<MemoryArg> {
+    fn decode(reader: &mut Reader) -> DecodeResult<MemoryArg> {
         let mem_arg = MemoryArg {
             align: reader.get_leb_u32()?,
             offset: reader.get_leb_u32()?,
@@ -768,19 +769,19 @@ impl Decode for MemoryArg {
 }
 
 impl Decode for Block {
-    fn decode(reader: &mut Reader) -> ReadResult<Block> {
+    fn decode(reader: &mut Reader) -> DecodeResult<Block> {
         let block_type = BlockType::decode(reader)?;
         let (expr, last_instr) = Expr::decode(reader)?;
 
         match last_instr {
             Instruction::End => Ok(Block::new(block_type, expr)),
-            _ => panic!("无效的块表达式"),
+            _ => Err(DecodeErr::InvalidBlock)?,
         }
     }
 }
 
 impl Decode for IfBlock {
-    fn decode(reader: &mut Reader) -> ReadResult<IfBlock> {
+    fn decode(reader: &mut Reader) -> DecodeResult<IfBlock> {
         let block_type = BlockType::decode(reader)?;
         let (if_expr, last_instr) = Expr::decode(reader)?;
 
@@ -795,7 +796,7 @@ impl Decode for IfBlock {
 
             match last_instr {
                 Instruction::End => if_block.else_expr = else_expr,
-                _ => panic!("无效的 else 块表达式"),
+                _ => Err(DecodeErr::InvalidElseBlock)?,
             }
         }
 
@@ -804,13 +805,13 @@ impl Decode for IfBlock {
 }
 
 impl Decode for BlockType {
-    fn decode(reader: &mut Reader) -> ReadResult<BlockType> {
+    fn decode(reader: &mut Reader) -> DecodeResult<BlockType> {
         Ok(BlockType::from(reader.get_leb_i32()?))
     }
 }
 
 impl Decode for BrTableArg {
-    fn decode(reader: &mut Reader) -> ReadResult<BrTableArg> {
+    fn decode(reader: &mut Reader) -> DecodeResult<BrTableArg> {
         let br_table_arg = BrTableArg {
             labels: LabelIdx::decodes(reader)?,
             default: LabelIdx::decode(reader)?,

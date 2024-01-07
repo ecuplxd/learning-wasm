@@ -1,20 +1,28 @@
+use super::reader::DecodeResult;
+use crate::binary::errors::DecodeErr;
+
 /// https://en.wikipedia.org/wiki/LEB128
-pub fn decode_unsigned(data: &[u8]) -> (u64, usize) {
+pub fn decode_unsigned(data: &[u8]) -> DecodeResult<(u64, usize)> {
     let mut result = 0;
 
     for (i, b) in data.iter().enumerate() {
         result |= ((*b & 0b0111_1111) as u64) << (i * 7);
 
         // 最高位为 0，停止读入后续字节
-        if b & 0b1000_0000 == 0 {
-            return (result, i + 1);
+        let no_more = b & 0b1000_0000 == 0;
+
+        match i == 4 {
+            true if !no_more => Err(DecodeErr::LEBDecodeTooLong)?,
+            true if (b >> (32 - i * 7)) > 0 => Err(DecodeErr::IntTooLarge)?,
+            _ if no_more => return Ok((result, i + 1)),
+            _ => continue,
         }
     }
 
-    panic!("LEB128 意外结束");
+    Err(DecodeErr::LEBUnexpectedEnd)?
 }
 
-pub fn decode_signed(data: &[u8], size: usize) -> (i64, usize) {
+pub fn decode_signed(data: &[u8], size: usize) -> DecodeResult<(i64, usize)> {
     let mut result = 0;
     let mut shift = 0;
 
@@ -22,17 +30,33 @@ pub fn decode_signed(data: &[u8], size: usize) -> (i64, usize) {
         result |= ((*b & 0b0111_1111) as i64) << shift;
         shift += 7;
 
-        if b & 0b1000_0000 == 0 {
+        let no_more = b & 0b1000_0000 == 0;
+
+        if i == size / 7 {
+            match no_more {
+                false => Err(DecodeErr::LEBDecodeTooLong)?,
+                true => {
+                    let o1 = b & 0x40 == 0 && b >> (size - i * 7 - 1) != 0;
+                    let o2 = b & 0x40 != 0 && ((b | 0x80) as i8) >> (size - i * 7 - 1) != -1;
+
+                    if o1 || o2 {
+                        Err(DecodeErr::IntTooLarge)?
+                    }
+                }
+            }
+        }
+
+        if no_more {
             // 第二高位为 1，表示复数，最高位全部补 1
             if shift < size && (b & 0b0100_0000 != 0) {
                 result |= !0 << shift;
             }
 
-            return (result, i + 1);
+            return Ok((result, i + 1));
         }
     }
 
-    panic!("LEB128 意外结束");
+    Err(DecodeErr::LEBUnexpectedEnd)?
 }
 
 pub fn encode_unsigned(mut data: u64) -> Vec<u8> {
@@ -110,30 +134,30 @@ mod test {
             0b1_0000011,
             0b0_0000001,
         ];
-        let (num, size) = decode_unsigned(&data[5..]);
+        let (num, size) = decode_unsigned(&data[5..]).unwrap();
         assert_eq!(num, 0b0000001);
         assert_eq!(size, 1);
 
-        let (num, size) = decode_unsigned(&data[4..]);
+        let (num, size) = decode_unsigned(&data[4..]).unwrap();
         assert_eq!(num, 0b1_0000011);
         assert_eq!(size, 2);
 
-        let (num, size) = decode_unsigned(&data[3..]);
+        let (num, size) = decode_unsigned(&data[3..]).unwrap();
         assert_eq!(num, 0b1_0000011_0000111);
         assert_eq!(size, 3);
 
-        let (num, size) = decode_unsigned(&data[2..]);
+        let (num, size) = decode_unsigned(&data[2..]).unwrap();
         assert_eq!(num, 0b1_0000011_0000111_0001111);
         assert_eq!(size, 4);
 
-        let (num, size) = decode_unsigned(&data[1..]);
+        let (num, size) = decode_unsigned(&data[1..]).unwrap();
         assert_eq!(num, 0b1_0000011_0000111_0001111_0011111);
         assert_eq!(size, 5);
     }
 
     #[test]
     fn test_decode_int() {
-        let (num, size) = decode_signed(&[0xc0, 0xbb, 0x78], 32);
+        let (num, size) = decode_signed(&[0xc0, 0xbb, 0x78], 32).unwrap();
 
         assert_eq!(num, -123456);
         assert_eq!(size, 3);
@@ -143,7 +167,7 @@ mod test {
     fn test_encode_unsigned() {
         let data: u64 = 624485;
         let e = encode_unsigned(data);
-        let d = decode_unsigned(&e);
+        let d = decode_unsigned(&e).unwrap();
 
         assert_eq!(data as u64, d.0);
     }
@@ -154,7 +178,7 @@ mod test {
 
         for data in datas {
             let e = encode_signed(data);
-            let d = decode_signed(&e, 64);
+            let d = decode_signed(&e, 64).unwrap();
 
             assert_eq!(data, d.0);
         }

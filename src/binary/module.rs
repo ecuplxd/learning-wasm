@@ -2,7 +2,8 @@ use std::fs;
 
 use super::decode::Decode;
 use super::encode::{Encode, Encodes};
-use super::reader::{ReadResult, Reader};
+use super::errors::DecodeErr;
+use super::reader::{DecodeResult, Reader};
 use super::section::{
     CodeSeg, CustomSeg, DataSeg, ElementSeg, ExportSeg, FuncIdx, GlobalSeg, ImportSeg, Section, TypeIdx,
 };
@@ -42,13 +43,13 @@ impl Module {
         }
     }
 
-    pub fn from_file(path: &str) -> ReadResult<Self> {
+    pub fn from_file(path: &str) -> DecodeResult<Self> {
         let wasm = fs::read(path).expect("文件读取失败");
 
         Self::from_data(wasm)
     }
 
-    pub fn from_data(data: Vec<u8>) -> ReadResult<Self> {
+    pub fn from_data(data: Vec<u8>) -> DecodeResult<Self> {
         let mut reader = Reader::new(&data);
 
         Self::decode(&mut reader)
@@ -79,20 +80,20 @@ impl Module {
 }
 
 impl Decode for Module {
-    fn decode(reader: &mut Reader) -> ReadResult<Module> {
+    fn decode(reader: &mut Reader) -> DecodeResult<Module> {
         match reader.get_u32()? {
             MAGIC => (),
-            other => panic!("wasm 文件头错误：{}", other),
+            magic => Err(DecodeErr::MagicUnMatch(magic))?,
         };
         match reader.get_u32()? {
             VERSION => (),
-            version => panic!("wasm 版本错误：{}", version),
+            version => Err(DecodeErr::VersionUnMatch(version))?,
         };
 
         let mut module = Module::new();
 
         while reader.not_end()? {
-            let id = Section::from(reader.get_u8()?);
+            let id = Section::from_u8(reader.get_u8()?)?;
             let sec_data = reader.seqs()?;
             let mut sec_reader = Reader::new(&sec_data);
 

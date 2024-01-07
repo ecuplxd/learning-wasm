@@ -596,10 +596,11 @@ mod test {
     use std::rc::Rc;
 
     use paste::paste;
+    use wasm::binary;
     use wasm::execution::importer::MImporter;
 
     use super::models::WabtJson;
-    use crate::models::{CommandType, Module};
+    use crate::models::{CommandType, Module, ModuleType};
     use crate::run::{Execute, LATEST_NAME};
     use crate::spec_test::SpecTestModule;
 
@@ -660,7 +661,31 @@ mod test {
                 // CommandType::AssertExhaustion(exhaustion) => todo!(),
                 // CommandType::AssertTrap(trap) => todo!(),
                 // CommandType::AssertInvalid(module) => todo!(),
-                // CommandType::AssertMalformed(module) => todo!(),
+                CommandType::AssertMalformed(assert_module) => {
+                    let filename = assert_module.filename;
+
+                    // 这两个需要先完成 validate
+                    if filename.starts_with("custom.") || filename.starts_with("binary.") {
+                        continue;
+                    }
+
+                    if matches!(assert_module.module_type, ModuleType::Binary) {
+                        let file_path = root.to_string() + &filename;
+                        let module = binary::module::Module::from_file(&file_path);
+
+                        match module {
+                            Ok(_) => panic!("模块 {} 不可能解析成功", filename),
+                            Err(ref err) => println!(
+                                "{} err：{:?} expected：{}",
+                                filename,
+                                err.to_string(),
+                                assert_module.text
+                            ),
+                        };
+
+                        assert!(module.is_err());
+                    }
+                }
                 // CommandType::AssertUninstantiable(module) => {
                 //     println!("\n{}\n", module.filename);
 
