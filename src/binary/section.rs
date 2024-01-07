@@ -115,12 +115,12 @@ pub enum ExternalKind {
 #[derive(Debug)]
 pub struct ElementSeg {
     pub flag: u32,
+    pub mode: ElementMode,
     pub type_: ValType,
     /// 目前是 0x00，funcref
     pub elem_kind: i32,
-    pub mode: ElementMode,
     pub func_idxs: Vec<FuncIdx>,
-    pub init_expr: Expr,
+    pub init_expr: Vec<Expr>,
 }
 
 impl ElementSeg {

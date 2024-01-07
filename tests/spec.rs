@@ -243,6 +243,8 @@ mod run {
     use std::cell::RefCell;
     use std::rc::Rc;
 
+    use wasm::binary;
+    use wasm::binary::encode::Encode;
     use wasm::execution::importer::{Importer, MImporter};
     use wasm::execution::types::{LoadFrom, ValInst};
     use wasm::execution::vm::VM;
@@ -259,10 +261,23 @@ mod run {
             maps: MImporter,
         ) -> (VM, String) {
             let file_path = root.to_string() + filename;
+            let module = binary::module::Module::from_file(&file_path).unwrap();
+
+            Module::test_module_encode(&module);
+
             let name = name.clone().unwrap_or(LATEST_NAME.to_string());
-            let vm = VM::load_and_run(&name, LoadFrom::File(&file_path), Some(maps));
+            let vm = VM::load_and_run(&name, LoadFrom::Module(module), Some(maps));
 
             (vm, name)
+        }
+
+        pub fn test_module_encode(module: &binary::module::Module) {
+            let encode1 = module.encode();
+            let d_module = binary::module::Module::from_data(encode1.clone()).unwrap();
+            let encode2 = d_module.encode();
+            let eq = encode1 == encode2;
+
+            assert_eq!(eq, true);
         }
 
         pub fn get(name: Option<String>, maps: MImporter) -> Rc<RefCell<dyn Importer>> {
@@ -581,7 +596,7 @@ mod test {
     use std::rc::Rc;
 
     use paste::paste;
-    use wasm::execution::importer::{Importer, MImporter};
+    use wasm::execution::importer::MImporter;
 
     use super::models::WabtJson;
     use crate::models::{CommandType, Module};
@@ -593,15 +608,22 @@ mod test {
             paste! {
                 #[test]
                 fn [<test_ $name>]()  {
-                    let name = stringify!($name);
-                    let file = format!("./tests/output/{name}/{name}.json");
-                    let json_str = fs::read_to_string(file).expect("json 读取失败");
-                    let deserialized: Result<WabtJson, _> = serde_json::from_str(&json_str);
+                    let (root, wabt_json) = load_wabt_json(stringify!($name));
 
-                    run_test(format!("./tests/output/{name}/"), deserialized.expect("json 解析失败"));
+                    run_test(root, wabt_json);
                 }
             }
         };
+    }
+
+    pub fn load_wabt_json(name: &str) -> (String, WabtJson) {
+        let file = format!("./tests/output/{name}/{name}.json");
+        let json_str = fs::read_to_string(file).expect("json 读取失败");
+
+        let deserialized: Result<WabtJson, _> = serde_json::from_str(&json_str);
+        let root = format!("./tests/output/{name}/");
+
+        (root, deserialized.expect("json 解析失败"))
     }
 
     fn run_test(root: String, wabt_json: WabtJson) {

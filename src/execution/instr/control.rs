@@ -82,13 +82,13 @@ impl VM {
         }
 
         match &func_inst.kind {
-            FuncInstKind::Inner(code) => self.invoke_inner_func(code.clone(), &type_),
+            FuncInstKind::Inner(code) => unsafe { self.invoke_inner_func(*code, &type_) },
             FuncInstKind::Outer(ctx, name) => {
                 // 存在嵌套调用，使用指针而不是 borrow_mut 绕过检查
                 let ptr = ctx.as_ptr();
                 let importer = unsafe { ptr.as_mut().unwrap() };
 
-                self.invoke_outer_func(importer, &name, &type_);
+                self.invoke_outer_func(importer, name, &type_);
             }
         }
 
@@ -98,7 +98,10 @@ impl VM {
         }
     }
 
-    pub fn invoke_inner_func(&mut self, code_ptr: *const CodeSeg, type_: &FuncType) {
+    /// # Safety
+    ///
+    /// 调用内部函数 codeseg 必存在
+    pub unsafe fn invoke_inner_func(&mut self, code_ptr: *const CodeSeg, type_: &FuncType) {
         match unsafe { code_ptr.as_ref() } {
             Some(code) => {
                 self.enter_block(LabelKind::Call, type_, &code.body);

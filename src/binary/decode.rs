@@ -159,7 +159,7 @@ impl Decode for ElementSeg {
         let flag = reader.get_leb_u32()?;
 
         if flag > 7 {
-            panic!("无效的元素 flag：{}", flag);
+            panic!("无效的元素段 flag：{}", flag);
         }
 
         let mode = match flag {
@@ -188,22 +188,15 @@ impl Decode for ElementSeg {
             _ => vec![],
         };
         let init_expr = match flag {
-            4..=7 => {
-                let expr = Vec::<Expr>::decodes(reader)?
-                    .into_iter()
-                    .flatten()
-                    .collect::<Vec<_>>();
-
-                expr
-            }
+            4..=7 => Vec::<Expr>::decodes(reader)?.into_iter().collect(),
             _ => vec![],
         };
 
         let element = ElementSeg {
             flag,
+            mode,
             type_,
             elem_kind,
-            mode,
             func_idxs,
             init_expr,
         };

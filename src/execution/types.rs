@@ -3,6 +3,7 @@ use std::simd::u8x16;
 
 use super::inst::RFuncInst;
 use crate::binary::instruction::Lane16;
+use crate::binary::module::Module;
 use crate::binary::section::FuncIdx;
 use crate::binary::types::ValType;
 
@@ -318,4 +319,5 @@ impl PartialEq for ValInst {
 pub enum LoadFrom<'a> {
     File(&'a str),
     Data(Vec<u8>),
+    Module(Module),
 }

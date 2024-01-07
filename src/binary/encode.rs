@@ -188,10 +188,7 @@ impl Encode for ElementSeg {
     fn encode(&self) -> Vec<u8> {
         let mut result = vec![];
 
-        let type_ = match self.flag {
-            0 | 4 => vec![],
-            _ => self.type_.encode(),
-        };
+        let flag = encode_u32(self.flag);
         let mode = match &self.mode {
             ElementMode::Active {
                 table_idx,
@@ -203,25 +200,29 @@ impl Encode for ElementSeg {
             },
             _ => vec![],
         };
+        let type_ = match self.flag {
+            0..=4 => vec![],
+            _ => self.type_.encode(),
+        };
         let elem_kind = match self.flag {
             1..=3 => encode_signed(self.elem_kind as i64),
             _ => vec![],
         };
-        let func_idxs = match self.flag {
+        let init = match self.flag {
             0..=3 => self.func_idxs.encodes(false),
-            _ => vec![],
-        };
-        let init_expr = match self.flag {
-            4..=7 => self.init_expr.encode(),
-            _ => vec![],
+            _ => {
+                let total = encode_usize(self.init_expr.len());
+                let expr = self.init_expr.iter().flat_map(|expr| expr.encode()).collect();
+
+                [total, expr].concat()
+            }
         };
 
-        result.extend(self.flag.encode());
-        result.extend(type_);
+        result.extend(flag);
         result.extend(mode);
+        result.extend(type_);
         result.extend(elem_kind);
-        result.extend(init_expr);
-        result.extend(func_idxs);
+        result.extend(init);
 
         result
     }
@@ -272,6 +273,7 @@ impl Encode for DataSeg {
     fn encode(&self) -> Vec<u8> {
         let mut result = vec![];
 
+        let flag = encode_u32(self.flag);
         let mem_idx = match self.flag {
             2 => self.mem_idx.encode(),
             _ => vec![],
@@ -280,12 +282,12 @@ impl Encode for DataSeg {
             DataMode::Active => self.offset_expr.encode(),
             _ => vec![],
         };
+        let init = [encode_usize(self.init.len()), self.init.clone()].concat();
 
-        result.extend(self.flag.encode());
+        result.extend(flag);
         result.extend(mem_idx);
         result.extend(offset);
-        result.extend(encode_usize(self.init.len()));
-        result.extend(self.init.clone());
+        result.extend(init);
 
         result
     }
@@ -355,6 +357,8 @@ impl Instruction {
             Instruction::RefFunc(data) => encode_u32(*data),
             Instruction::MemoryInit(segment, idx) => [encode_u32(*segment), encode_u32(*idx)].concat(),
             Instruction::DataDrop(data) => encode_u32(*data),
+            Instruction::MemoryCopy(data1, data2) => [data1.encode(), data2.encode()].concat(),
+            Instruction::MemoryFill(data) => encode_u32(*data),
             Instruction::TableInit(data1, data2) => [data1.encode(), data2.encode()].concat(),
             Instruction::ElemDrop(data) => encode_u32(*data),
             Instruction::TableCopy(data1, data2) => [data1.encode(), data2.encode()].concat(),

@@ -75,6 +75,7 @@ impl VM {
         match kind {
             LoadFrom::Data(data) => Self::from_data(name, data, importers),
             LoadFrom::File(path) => Self::from_file(name, path, importers),
+            LoadFrom::Module(module) => Self::new(name, module, importers),
         }
     }
 }
@@ -89,29 +90,29 @@ impl Importer for VM {
     }
 
     fn resolve_func(&self, name: &str) -> Option<RFuncInst> {
-        self.exports.get(name).and_then(|export| match export.desc {
-            ExportDesc::Func(idx) => Some(Rc::clone(&self.funcs[idx as usize])),
+        self.exports.get(name).map(|export| match export.desc {
+            ExportDesc::Func(idx) => self.funcs[idx as usize].clone(),
             _ => panic!("模块不存在名为 {} 的函数导出项", name),
         })
     }
 
     fn resolve_table(&self, name: &str) -> Option<RTableInst> {
-        self.exports.get(name).and_then(|export| match export.desc {
-            ExportDesc::Table(idx) => Some(Rc::clone(&self.tables[idx as usize])),
+        self.exports.get(name).map(|export| match export.desc {
+            ExportDesc::Table(idx) => self.tables[idx as usize].clone(),
             _ => panic!("模块不存在名为 {} 的表导出项", name),
         })
     }
 
     fn resolve_mem(&self, name: &str) -> Option<RMemInst> {
-        self.exports.get(name).and_then(|export| match export.desc {
-            ExportDesc::Mem(idx) => Some(Rc::clone(&self.mems[idx as usize])),
+        self.exports.get(name).map(|export| match export.desc {
+            ExportDesc::Mem(idx) => self.mems[idx as usize].clone(),
             _ => panic!("模块不存在名为 {} 的内存导出项", name),
         })
     }
 
     fn resolve_global(&self, name: &str) -> Option<RGlobalInst> {
-        self.exports.get(name).and_then(|export| match export.desc {
-            ExportDesc::Global(idx) => Some(Rc::clone(&self.globals[idx as usize])),
+        self.exports.get(name).map(|export| match export.desc {
+            ExportDesc::Global(idx) => self.globals[idx as usize].clone(),
             _ => panic!("模块不存在名为 {} 的全局导出项", name),
         })
     }
@@ -119,8 +120,7 @@ impl Importer for VM {
     fn call_by_name(&mut self, name: &str, args: ValInsts) -> ValInsts {
         match self.resolve_func(name) {
             Some(ptr) => {
-                let temp = Rc::clone(&ptr);
-                let func_inst = temp.borrow();
+                let func_inst = ptr.borrow();
 
                 self.invoke(&func_inst, Some(args))
             }
@@ -353,8 +353,10 @@ impl VM {
                 true => elem
                     .init_expr
                     .iter()
-                    .map(|instr| {
-                        self.exec_instr(instr);
+                    .map(|expr| {
+                        // 其实只有 1 个指令
+                        expr.iter().for_each(|instr| self.exec_instr(instr));
+
                         self.pop()
                     })
                     .collect(),

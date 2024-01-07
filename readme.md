@@ -6,7 +6,7 @@
 git submodule init
 git submodule update
 cd tests
-# 使用官方 wabt 下的 wast2json 工具，if 和 comments 解析失败
+# 使用官方 wabt 下的 wast2json 工具，if 和 comments 会解析失败，疑似 wabt 的 bug
 python walk.py
 # linux 系统可能需要安装 openssl
 cargo install cargo-tarpaulin
@@ -257,11 +257,16 @@ Jan 06 21:47:41.317  INFO cargo_tarpaulin::report: Coverage Results:
 84.49% coverage, 4037/4778 lines covered
 ```
 
+# done
+
+- 二进制模块编解码
+- 虚拟机
+
 # todo
 
 - trap
 - validate
-- encode（已完成未测试）
+- AssertExhaustion、AssertTrap、AssertInvalid、AssertMalformed、AssertUninstantiable
 - wasi
 - dump
 - wat 的解析
