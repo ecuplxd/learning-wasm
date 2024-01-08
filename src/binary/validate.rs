@@ -1,109 +1,124 @@
 use std::collections::HashSet;
 
+use super::errors::ValidateErr;
 use super::instruction::Instruction;
 use super::module::Module;
 use super::section::{
-    CodeSeg, DataMode, DataSeg, ElementMode, ElementSeg, ExportSeg, Expr, FuncIdx, GlobalSeg,
-    ImportDesc, ImportSeg, TypeIdx,
+    CodeSeg, DataMode, DataSeg, ElementMode, ElementSeg, ExportDesc, ExportSeg, Expr, GlobalSeg,
+    ImportDesc, ImportSeg, StartSeg, TypeIdx,
 };
-use super::types::{FuncType, MemType, RefType, TableType, ValType};
+use super::types::{FuncType, MemType, TableType, ValType};
+
+pub type ValidateResult<T = ()> = Result<T, ValidateErr>;
 
 pub trait Validate {
-    fn validate_use_module(&self, _module: &Module) {}
+    fn validate(&self) -> ValidateResult {
+        Ok(())
+    }
+
+    fn validate_use_module(&self, _module: &Module) -> ValidateResult {
+        Ok(())
+    }
 }
 
-pub trait ValidateSelf {
-    fn validate(&self);
+impl Module {
+    pub fn validates<T>(secs: &Vec<T>, module: &Module) -> ValidateResult
+    where
+        T: Validate,
+    {
+        for sec in secs {
+            sec.validate_use_module(module)?;
+        }
+
+        Ok(())
+    }
 }
 
 /// 导入段
 impl Validate for ImportSeg {
-    fn validate_use_module(&self, module: &Module) {
+    fn validate_use_module(&self, module: &Module) -> ValidateResult {
         match &self.desc {
             ImportDesc::Func(idx) => idx.validate_use_module(module),
             ImportDesc::Table(type_) => type_.validate_use_module(module),
             ImportDesc::Mem(type_) => type_.validate_use_module(module),
-            ImportDesc::Global(_) => (),
+            ImportDesc::Global(_) => Ok(()),
         }
     }
 }
 
 /// 函数（类型索引）段
 impl Validate for TypeIdx {
-    fn validate_use_module(&self, module: &Module) {
-        let idx = *self as usize;
-
-        if idx > module.type_sec.len() {
-            panic!("找不到索引 {} 对应的函数类型", idx);
+    fn validate_use_module(&self, module: &Module) -> ValidateResult {
+        match (*self as usize) > module.type_sec.len() {
+            true => Err(ValidateErr::FnTypeNotFound(*self))?,
+            false => Ok(()),
         }
     }
 }
 
 /// 表段
 impl Validate for TableType {
-    fn validate_use_module(&self, module: &Module) {
+    fn validate_use_module(&self, module: &Module) -> ValidateResult {
         let exit_import_table = module
             .import_sec
             .iter()
             .any(|import| matches!(import.desc, ImportDesc::Table(_)));
 
         if exit_import_table {
-            panic!("导入外部表段，则不能在模块内再次定义");
+            Err(ValidateErr::ExitImportTable)?;
         }
 
         let limits = &self.limits;
 
         match limits.max {
-            Some(max) if max < limits.min => panic!("指定的上限小于下限：{} < {}", max, limits.min),
-            Some(max) if max > 232 => panic!("上限不能大于 {}", 232),
-            _ => (),
-        }
-
-        if self.elem_type != RefType::FuncRef && self.elem_type != RefType::ExternRef {
-            panic!("表元素只是是引用类型：{:?}", self.elem_type);
+            Some(max) if max < limits.min => Err(ValidateErr::MaxLtMin(max, limits.min))?,
+            Some(max) if max > 232 => Err(ValidateErr::MaxTooLarge(max, 232))?,
+            _ => Ok(()),
         }
     }
 }
 
 /// 内存段
 impl Validate for MemType {
-    fn validate_use_module(&self, module: &Module) {
+    fn validate_use_module(&self, module: &Module) -> ValidateResult {
         let exit_import_memory = module
             .import_sec
             .iter()
             .any(|import| matches!(import.desc, ImportDesc::Mem(_)));
 
         if exit_import_memory {
-            panic!("导入外部内存，则不能在模块内再次定义");
+            Err(ValidateErr::ExitImportMem)?;
         }
 
         match self.max {
-            Some(max) if max < self.min => panic!("指定的上限小于下限：{} < {}", max, self.min),
-            Some(max) if max > 216 => panic!("上限不能大于 {}", 216),
-            _ => (),
+            Some(max) if max < self.min => Err(ValidateErr::MaxLtMin(max, self.min))?,
+            Some(max) if max > 216 => Err(ValidateErr::MaxTooLarge(max, 216))?,
+            _ => Ok(()),
         }
     }
 }
 
 /// 全局段
 impl Validate for GlobalSeg {
-    fn validate_use_module(&self, module: &Module) {
-        if validate_const_expr(&self.init_expr, &module.global_sec) != self.type_.val_type {
-            panic!(
-                "表达式的结果 {:?} 和全局变量类型不一致 {:?}",
-                self.type_.val_type, module.global_sec
-            )
+    fn validate_use_module(&self, module: &Module) -> ValidateResult {
+        let val_type = validate_const_expr(&self.init_expr, &module.global_sec)?;
+
+        match val_type != self.type_.val_type {
+            true => Err(ValidateErr::ExprRetNotEq(val_type, self.type_.val_type)),
+            false => Ok(()),
         }
     }
 }
 
 /// 导出段
-impl ValidateSelf for Vec<ExportSeg> {
-    fn validate(&self) {
+impl Validate for Vec<ExportSeg> {
+    fn validate_use_module(&self, module: &Module) -> ValidateResult {
         let mut names: HashSet<String> = HashSet::new();
         let mut dups: Vec<String> = vec![];
 
         for export in self {
+            export.desc.validate_use_module(module)?;
+
             let name = &export.name;
 
             if !names.insert(name.clone()) {
@@ -111,15 +126,36 @@ impl ValidateSelf for Vec<ExportSeg> {
             }
         }
 
-        if !dups.is_empty() {
-            panic!("存在重复的导出项：{:?}", dups);
+        match !dups.is_empty() {
+            true => Err(ValidateErr::DuplicateExport(dups))?,
+            false => Ok(()),
+        }
+    }
+}
+
+impl Validate for ExportDesc {
+    fn validate_use_module(&self, module: &Module) -> ValidateResult {
+        match self {
+            ExportDesc::Func(i) if module.func_sec.get(*i as usize).is_none() => {
+                Err(ValidateErr::FnNotFound(*i))
+            }
+            ExportDesc::Table(i) if module.table_sec.get(*i as usize).is_none() => {
+                Err(ValidateErr::TableNotFound(*i))
+            }
+            ExportDesc::Mem(i) if module.mem_sec.get(*i as usize).is_none() => {
+                Err(ValidateErr::MemNotFound(*i))
+            }
+            ExportDesc::Global(i) if module.global_sec.get(*i as usize).is_none() => {
+                Err(ValidateErr::GlobalVarNotFound(*i))
+            }
+            _ => Ok(()),
         }
     }
 }
 
 /// 开始段
-impl Validate for Option<FuncIdx> {
-    fn validate_use_module(&self, module: &Module) {
+impl Validate for StartSeg {
+    fn validate_use_module(&self, module: &Module) -> ValidateResult {
         if let Some(idx) = self {
             let idx = *idx as usize;
             let mut func_type: Option<FuncType> = None;
@@ -152,24 +188,26 @@ impl Validate for Option<FuncIdx> {
             match func_type {
                 Some(func_type) => {
                     if !func_type.params.is_empty() {
-                        panic!("main 函数不接收任何参数：{:?}", func_type.params);
+                        Err(ValidateErr::StartFnNoParam(func_type.params))?;
                     }
 
                     if !func_type.results.is_empty() {
-                        panic!("main 函数没有返回值：{:?}", func_type.results);
+                        Err(ValidateErr::StartFnNoResult(func_type.results))?;
                     }
                 }
-                None => panic!("找不到索引 {} 对应的函数类型声明", idx),
+                None => Err(ValidateErr::FnTypeNotFound(idx as u32))?,
             }
         }
+
+        Ok(())
     }
 }
 
 /// 元素段
 impl Validate for ElementSeg {
-    fn validate_use_module(&self, module: &Module) {
+    fn validate_use_module(&self, module: &Module) -> ValidateResult {
         match &self.mode {
-            ElementMode::Passive => todo!("validate ElementMode::Passive"),
+            ElementMode::Passive => Ok(()),
             ElementMode::Active {
                 table_idx,
                 offset_expr: offset,
@@ -177,85 +215,76 @@ impl Validate for ElementSeg {
                 let idx = *table_idx as usize;
 
                 if idx > module.table_sec.len() {
-                    panic!("找不到索引 {} 对应的表", table_idx);
+                    Err(ValidateErr::TableNotFound(idx as u32))?;
                 }
 
-                if validate_const_expr(offset, &module.global_sec) != ValType::I32 {
-                    panic!("元素段 offset 初始表达式返回值应为 I32");
+                let val_type = validate_const_expr(offset, &module.global_sec)?;
+
+                if val_type != ValType::I32 {
+                    Err(ValidateErr::OffsetRetNotEqI32(val_type))?;
                 }
 
                 let func_total = (module.func_sec.len() + import_func_total(module)) as u32;
 
                 for func_idx in &self.func_idxs {
                     if *func_idx > func_total {
-                        panic!("找不到索引 {} 对应的函数", func_idx);
+                        Err(ValidateErr::FnTypeNotFound(*func_idx))?;
                     }
                 }
+
+                Ok(())
             }
-            ElementMode::Declarative => todo!("validate ElementMode::Declarative"),
+            ElementMode::Declarative => Ok(()),
         }
     }
 }
 
 /// 代码段
-impl Validate for Vec<CodeSeg> {
-    fn validate_use_module(&self, module: &Module) {
-        if self.len() != module.func_sec.len() {
-            panic!(
-                "代码块数量 {} 和函数段数量 {} 不一致",
-                self.len(),
-                module.func_sec.len()
-            );
-        }
-
-        for code in self {
-            code.validate();
-        }
+impl Validate for CodeSeg {
+    fn validate(&self) -> ValidateResult {
+        Ok(())
     }
-}
-
-impl ValidateSelf for CodeSeg {
-    fn validate(&self) {}
 }
 
 /// 数据段
 impl Validate for DataSeg {
-    fn validate_use_module(&self, module: &Module) {
+    fn validate_use_module(&self, module: &Module) -> ValidateResult {
         match &self.mode {
-            DataMode::Passive => todo!("validate DataMode::Passive"),
+            DataMode::Passive => Ok(()),
             DataMode::Active => {
                 let idx = self.mem_idx as usize;
 
                 if idx > module.mem_sec.len() {
-                    panic!("找不到索引 {} 对应的内存块", self.mem_idx);
+                    Err(ValidateErr::MemNotFound(self.mem_idx))?;
                 }
 
-                if validate_const_expr(&self.offset_expr, &module.global_sec) != ValType::I32 {
-                    panic!("数据段 offset 初始表达式返回值应为 I32");
+                let val_type = validate_const_expr(&self.offset_expr, &module.global_sec)?;
+
+                match val_type != ValType::I32 {
+                    true => Err(ValidateErr::OffsetRetNotEqI32(val_type))?,
+                    false => Ok(()),
                 }
             }
         }
     }
 }
 
-fn validate_const_expr(expr: &Expr, globals: &[GlobalSeg]) -> ValType {
+fn validate_const_expr(expr: &Expr, globals: &[GlobalSeg]) -> ValidateResult<ValType> {
     if expr.len() != 1 {
-        panic!("初始表达式的长度应为 1，现为 {}", expr.len());
+        Err(ValidateErr::InitExprLen(expr.len()))?;
     }
 
     match &expr[0] {
-        Instruction::I32Const(_) => ValType::I32,
-        Instruction::I64Const(_) => ValType::I64,
-        Instruction::F32Const(_) => ValType::F32,
-        Instruction::F64Const(_) => ValType::F64,
+        Instruction::I32Const(_) => Ok(ValType::I32),
+        Instruction::I64Const(_) => Ok(ValType::I64),
+        Instruction::F32Const(_) => Ok(ValType::F32),
+        Instruction::F64Const(_) => Ok(ValType::F64),
         Instruction::GlobalGet(idx) => match globals.get(*idx as usize) {
-            Some(global) if !global.type_.is_const() => {
-                panic!("索引 {} 对应的全局变量不是常量表达式", idx)
-            }
-            Some(global) => global.type_.val_type,
-            None => panic!("找不到索引 {} 对应的全局变量", idx),
+            Some(global) if !global.type_.is_const() => Err(ValidateErr::GlobalVarNotConst(*idx))?,
+            Some(global) => Ok(global.type_.val_type),
+            None => Err(ValidateErr::GlobalVarNotFound(*idx))?,
         },
-        instr => panic!("只能用常量表达式进行初始化操作：{:?}", instr),
+        instr => Err(ValidateErr::InitNotConst(instr.discriminant()))?,
     }
 }
 

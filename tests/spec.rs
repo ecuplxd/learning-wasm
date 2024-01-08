@@ -127,7 +127,7 @@ mod models {
         pub module_type: ModuleType,
     }
 
-    #[derive(Debug, Deserialize)]
+    #[derive(Debug, Deserialize, PartialEq)]
     #[serde(rename_all = "lowercase")]
     pub enum ModuleType {
         Binary,
@@ -245,11 +245,14 @@ mod run {
 
     use wasm::binary;
     use wasm::binary::encode::Encode;
+    use wasm::binary::reader::DecodeResult;
     use wasm::execution::importer::{Importer, MImporter};
     use wasm::execution::types::{LoadFrom, ValInst};
     use wasm::execution::vm::VM;
 
-    use crate::models::{Action, AssertReturn, Const, GetAction, InvokeAction, LaneType, Module};
+    use crate::models::{
+        Action, AssertModule, AssertReturn, Const, GetAction, InvokeAction, LaneType, Module, ModuleType,
+    };
 
     pub const LATEST_NAME: &str = "latest";
 
@@ -285,6 +288,20 @@ mod run {
             let vm_ = maps.get(&name);
 
             vm_.expect("无法获取到 vm 实例").clone()
+        }
+    }
+
+    impl AssertModule {
+        pub fn is_binary_module(&self) -> bool {
+            self.module_type == ModuleType::Binary
+        }
+
+        pub fn create(&self, root: &str) -> DecodeResult<binary::module::Module> {
+            let file_path = root.to_string() + &self.filename;
+
+            print!("create assert module：{} assert：{} ", self.filename, self.text);
+
+            binary::module::Module::from_file(&file_path)
         }
     }
 
@@ -596,11 +613,10 @@ mod test {
     use std::rc::Rc;
 
     use paste::paste;
-    use wasm::binary;
     use wasm::execution::importer::MImporter;
 
     use super::models::WabtJson;
-    use crate::models::{CommandType, Module, ModuleType};
+    use crate::models::{CommandType, Module};
     use crate::run::{Execute, LATEST_NAME};
     use crate::spec_test::SpecTestModule;
 
@@ -662,26 +678,14 @@ mod test {
                 // CommandType::AssertTrap(trap) => todo!(),
                 // CommandType::AssertInvalid(module) => todo!(),
                 CommandType::AssertMalformed(assert_module) => {
-                    let filename = assert_module.filename;
+                    if assert_module.is_binary_module() {
+                        let module = assert_module.create(&root);
 
-                    if matches!(assert_module.module_type, ModuleType::Binary) {
-                        let file_path = root.to_string() + &filename;
-                        let module = binary::module::Module::from_file(&file_path);
+                        assert!(module.is_err(), "不可能解析成功");
 
-                        match module {
-                            Ok(_) => panic!(
-                                "模块 {} 不可能解析成功。expected：{}",
-                                filename, assert_module.text
-                            ),
-                            Err(ref err) => println!(
-                                "{} err：{:?} expected：{}",
-                                filename,
-                                err.to_string(),
-                                assert_module.text
-                            ),
-                        };
-
-                        assert!(module.is_err());
+                        if let Err(err) = module {
+                            println!("err：{:#}", err);
+                        }
                     }
                 }
                 // CommandType::AssertUninstantiable(module) => {

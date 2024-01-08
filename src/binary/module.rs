@@ -9,7 +9,7 @@ use super::section::{
     StartSeg, TypeIdx,
 };
 use super::types::*;
-use super::validate::{Validate, ValidateSelf};
+use super::validate::{Validate, ValidateResult};
 
 const MAGIC: u32 = 0x6d736100;
 const VERSION: u32 = 0x00000001;
@@ -68,15 +68,6 @@ impl Module {
         }
 
         result
-    }
-
-    fn validates<T>(secs: &Vec<T>, module: &Module)
-    where
-        T: Validate,
-    {
-        for sec in secs {
-            sec.validate_use_module(module);
-        }
     }
 }
 
@@ -182,19 +173,21 @@ impl Encode for Module {
     }
 }
 
-impl ValidateSelf for Module {
-    fn validate(&self) {
+impl Validate for Module {
+    fn validate(&self) -> ValidateResult {
         let module = self;
 
-        Module::validates(&self.import_sec, module);
-        Module::validates(&self.func_sec, module);
-        Module::validates(&self.table_sec, module);
-        Module::validates(&self.mem_sec, module);
-        Module::validates(&self.global_sec, module);
-        self.export_sec.validate();
-        self.start_sec.validate_use_module(module);
-        Module::validates(&self.elem_sec, module);
-        self.code_sec.validate_use_module(module);
-        Module::validates(&self.data_sec, module);
+        Module::validates(&self.import_sec, module)?;
+        Module::validates(&self.func_sec, module)?;
+        Module::validates(&self.table_sec, module)?;
+        Module::validates(&self.mem_sec, module)?;
+        Module::validates(&self.global_sec, module)?;
+        self.export_sec.validate_use_module(module)?;
+        self.start_sec.validate_use_module(module)?;
+        Module::validates(&self.elem_sec, module)?;
+        Module::validates(&self.code_sec, module)?;
+        Module::validates(&self.data_sec, module)?;
+
+        Ok(())
     }
 }

@@ -1,7 +1,7 @@
 use std::io;
 
 use super::section::Section;
-use super::types::ValType;
+use super::types::{ResultType, ValType};
 
 #[derive(thiserror::Error, Debug)]
 pub enum DecodeErr {
@@ -93,13 +93,19 @@ pub enum DecodeErr {
 #[derive(thiserror::Error, Debug)]
 pub enum ValidateErr {
     #[error("找不到索引 {0} 对应的函数类型")]
-    FuncIdxNotFound(usize),
+    FnTypeNotFound(u32),
 
-    #[error("数据段 offset 初始表达式返回值应为 I32：{0:?}")]
-    DataOffset(ValType),
+    #[error("offset 初始表达式返回值应为 I32：{0:?}")]
+    OffsetRetNotEqI32(ValType),
 
     #[error("找不到索引 {0} 对应的内存块")]
-    NotFoundMemByIdx(u32),
+    MemNotFound(u32),
+
+    #[error("找不到索引 {0} 对应的表")]
+    TableNotFound(u32),
+
+    #[error("找不到索引 {0} 对应的函数")]
+    FnNotFound(u32),
 
     #[error("初始表达式的长度应为 1，现为 {0}")]
     InitExprLen(usize),
@@ -111,5 +117,29 @@ pub enum ValidateErr {
     GlobalVarNotFound(u32),
 
     #[error("只能用常量表达式进行初始化操作：{0:02X?}")]
-    InitNotByConst(u16),
+    InitNotConst(u16),
+
+    #[error("start 函数不应有参数：{0:?}")]
+    StartFnNoParam(ResultType),
+
+    #[error("start 函数不应有返回值：{0:?}")]
+    StartFnNoResult(ResultType),
+
+    #[error("存在重复的导出项：{0:?}")]
+    DuplicateExport(Vec<String>),
+
+    #[error("表达式的结果 {0:?} 和预期不符 {1:?}")]
+    ExprRetNotEq(ValType, ValType),
+
+    #[error("导入了外部内存，则不能在模块内再次定义")]
+    ExitImportMem,
+
+    #[error("导入了外部表段，则不能在模块内再次定义")]
+    ExitImportTable,
+
+    #[error("指定的上限小于下限：{0} < {1}")]
+    MaxLtMin(u32, u32),
+
+    #[error("上限 {0} 不能大于 {1}")]
+    MaxTooLarge(u32, u32),
 }
