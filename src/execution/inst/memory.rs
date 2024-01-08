@@ -3,6 +3,7 @@ use std::simd::ToBytes;
 use crate::binary::instruction::{Lane16, Lane8};
 use crate::binary::section::MaybeU32;
 use crate::binary::types::MemType;
+use crate::execution::errors::{InstError, VMState};
 use crate::execution::types::v128;
 
 pub const PAGE_SIZE: u32 = 65536;
@@ -20,13 +21,13 @@ pub trait Memory {
         self.mem_reads(addr, 1)[0]
     }
 
-    fn mem_write(&mut self, addr: u64, data: u8) {
-        self.mem_writes(addr, &[data]);
+    fn mem_write(&mut self, addr: u64, data: u8) -> VMState {
+        self.mem_writes(addr, &[data])
     }
 
     fn mem_reads(&self, addr: u64, n: u64) -> Vec<u8>;
 
-    fn mem_writes(&mut self, addr: u64, bytes: &[u8]);
+    fn mem_writes(&mut self, addr: u64, bytes: &[u8]) -> VMState;
 
     fn mem_read_8(&self, addr: u64) -> Lane8 {
         let mut bytes = [0u8; 8];
@@ -145,11 +146,19 @@ impl Memory for MemInst {
         self.data[addr..addr + n].to_vec()
     }
 
-    fn mem_writes(&mut self, addr: u64, bytes: &[u8]) {
+    fn mem_writes(&mut self, addr: u64, bytes: &[u8]) -> VMState {
         let addr = addr as usize;
-        let slice = &mut self.data[addr..addr + bytes.len()];
+        let total = addr + bytes.len();
+
+        if total > self.data.len() || total < addr {
+            Err(InstError::OutofBoundMem)?;
+        }
+
+        let slice = &mut self.data[addr..total];
 
         slice.copy_from_slice(bytes);
+
+        Ok(())
     }
 
     fn mem_size(&self) -> u32 {

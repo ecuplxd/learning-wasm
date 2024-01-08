@@ -246,6 +246,7 @@ mod run {
     use wasm::binary;
     use wasm::binary::encode::Encode;
     use wasm::binary::reader::DecodeResult;
+    use wasm::execution::errors::VMState;
     use wasm::execution::importer::{Importer, MImporter};
     use wasm::execution::types::{LoadFrom, ValInst};
     use wasm::execution::vm::VM;
@@ -262,7 +263,9 @@ mod run {
             filename: &str,
             name: Option<String>,
             maps: MImporter,
-        ) -> (VM, String) {
+        ) -> (VMState<VM>, String) {
+            println!("create module {} {:?}", filename, name);
+
             let file_path = root.to_string() + filename;
             let module = binary::module::Module::from_file(&file_path).unwrap();
 
@@ -299,7 +302,7 @@ mod run {
         pub fn create(&self, root: &str) -> DecodeResult<binary::module::Module> {
             let file_path = root.to_string() + &self.filename;
 
-            print!("create assert module：{} assert：{} ", self.filename, self.text);
+            println!("create assert module：{} assert：{} ", self.filename, self.text);
 
             binary::module::Module::from_file(&file_path)
         }
@@ -655,13 +658,12 @@ mod test {
 
             match command.type_ {
                 CommandType::Module(module) => {
-                    println!("\n{}\n", module.filename);
-
                     if module.filename == "linking.20.wasm" {
-                        print!("");
+                        println!("");
                     }
 
-                    let (vm, name) = Module::create(&root, &module.filename, module.name, maps_copy);
+                    let (vm_, name) = Module::create(&root, &module.filename, module.name, maps_copy);
+                    let vm = vm_.expect("合法模块是不可能实例化失败的");
                     let vm_rc = Rc::new(RefCell::new(vm));
 
                     if name != LATEST_NAME {
@@ -688,13 +690,27 @@ mod test {
                         }
                     }
                 }
-                // CommandType::AssertUninstantiable(module) => {
-                //     println!("\n{}\n", module.filename);
+                CommandType::AssertUninstantiable(module) => {
+                    // 需要先处理 unreachable
+                    if module.filename == "linking.39.wasm" || module.filename == "start.8.wasm" {
+                        return;
+                    }
 
+                    if module.is_binary_module() {
+                        let name = Some("uninstantiable".to_string());
+                        let (vm, _) = Module::create(&root, &module.filename, name, maps_copy);
+
+                        assert!(vm.is_err(), "不可能实例化成功");
+
+                        if let Err(err) = vm {
+                            println!("err：{:#}\n", err);
+                        }
+                    }
+                }
+                // CommandType::AssertUnlinkable(module) => {
                 //     let name = Some("uninstantiable".to_string());
                 //     let (vm, name) = Module::create(&root, &module.filename, name, maps_copy);
-                // }
-                // CommandType::AssertUnlinkable(module) => todo!(),
+                // },
                 CommandType::Register(register) => {
                     let vm = Module::get(register.name.clone(), maps_copy);
 
@@ -748,7 +764,7 @@ mod test {
     load!(int_literals);
     load!(labels);
     load!(left_to_right);
-    // load!(linking);
+    load!(linking);
     load!(load);
     load!(local_get);
     load!(local_set);

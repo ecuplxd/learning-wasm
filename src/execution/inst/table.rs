@@ -1,6 +1,7 @@
 use super::memory::MAX_PAGE_SIZE;
 use super::RFuncInst;
 use crate::binary::types::TableType;
+use crate::execution::errors::{InstError, VMState};
 use crate::execution::types::{ValInst, ValInsts};
 
 /// 表
@@ -26,6 +27,10 @@ impl TableInst {
 
     pub fn size(&self) -> u32 {
         self.elems.len() as u32
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.elems.is_empty()
     }
 
     pub fn grow(&mut self, size: u32, ref_val: ValInst) -> i32 {
@@ -70,8 +75,16 @@ impl TableInst {
         &self.elems[idx as usize]
     }
 
-    pub fn set_elem(&mut self, idx: u32, ref_val: ValInst) {
-        self.elems[idx as usize] = ref_val;
+    pub fn set_elem(&mut self, idx: u32, ref_val: ValInst) -> VMState {
+        let idx = idx as usize;
+
+        if self.elems.is_empty() || idx >= self.elems.len() {
+            Err(InstError::OutofBoundTable)?;
+        }
+
+        self.elems[idx] = ref_val;
+
+        Ok(())
     }
 
     pub fn get_elems(&self, src: u32, size: u32) -> &[ValInst] {

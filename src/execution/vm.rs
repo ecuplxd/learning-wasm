@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use super::errors::{InstError, VMState};
 use super::importer::{Importer, MImporter};
 use super::inst::element::ElemInst;
 use super::inst::function::FuncInst;
@@ -39,7 +40,7 @@ pub struct VM {
 
 /// 构造函数
 impl VM {
-    pub fn new(name: &str, module: Module, maps: Option<MImporter>) -> Self {
+    pub fn new(name: &str, module: Module, maps: Option<MImporter>) -> VMState<Self> {
         let mut vm = Self {
             id: name.to_string() + "-" + &random_str(10),
             name: name.to_string(),
@@ -53,25 +54,25 @@ impl VM {
             }
         }
 
-        vm.init();
+        vm.init()?;
         vm.call_start();
 
-        vm
+        Ok(vm)
     }
 
-    pub fn from_file(name: &str, path: &str, importers: Option<MImporter>) -> Self {
+    pub fn from_file(name: &str, path: &str, importers: Option<MImporter>) -> VMState<Self> {
         let module = Module::from_file(path).expect("模块解析错误");
 
         Self::new(name, module, importers)
     }
 
-    pub fn from_data(name: &str, data: Vec<u8>, importers: Option<MImporter>) -> Self {
+    pub fn from_data(name: &str, data: Vec<u8>, importers: Option<MImporter>) -> VMState<Self> {
         let module = Module::from_data(data).expect("模块解析错误");
 
         Self::new(name, module, importers)
     }
 
-    pub fn load_and_run(name: &str, kind: LoadFrom, importers: Option<MImporter>) -> Self {
+    pub fn load_and_run(name: &str, kind: LoadFrom, importers: Option<MImporter>) -> VMState<Self> {
         match kind {
             LoadFrom::Data(data) => Self::from_data(name, data, importers),
             LoadFrom::File(path) => Self::from_file(name, path, importers),
@@ -185,7 +186,7 @@ impl Memory for VM {
         self.mems[self.mem_idx].borrow().mem_reads(addr, n)
     }
 
-    fn mem_writes(&mut self, addr: u64, bytes: &[u8]) {
+    fn mem_writes(&mut self, addr: u64, bytes: &[u8]) -> VMState {
         self.mems[self.mem_idx].borrow_mut().mem_writes(addr, bytes)
     }
 
@@ -283,21 +284,23 @@ impl VM {
         }
     }
 
-    fn init(&mut self) {
+    fn init(&mut self) -> VMState {
         let module = Rc::clone(&self.module);
 
         self.init_funcs(module.as_ref());
-        self.init_table_and_elem(module.as_ref());
-        self.init_mem_and_data(module.as_ref());
+        self.init_table_and_elem(module.as_ref())?;
+        self.init_mem_and_data(module.as_ref())?;
         self.init_global(module.as_ref());
 
         for export in &module.export_sec {
             self.exports.insert(export.name.clone(), export.clone());
         }
+
+        Ok(())
     }
 
     // 初始化内存：定义了内存才能使用 data 段，下表、元素段同理
-    fn init_mem_and_data(&mut self, module: &Module) {
+    fn init_mem_and_data(&mut self, module: &Module) -> VMState {
         for mem in &module.mem_sec {
             let mem_inst = MemInst::new(mem.clone());
 
@@ -315,11 +318,13 @@ impl VM {
                 let addr = self.pop().as_mem_addr();
                 let mut mem = self.mems[data.mem_idx as usize].borrow_mut();
 
-                mem.mem_writes(addr, &self.datas[i]);
+                mem.mem_writes(addr, &self.datas[i])?;
 
                 self.datas[i].clear();
             }
         }
+
+        Ok(())
     }
 
     // 初始化函数段
@@ -346,7 +351,7 @@ impl VM {
     }
 
     // 初始化表
-    fn init_table_and_elem(&mut self, module: &Module) {
+    fn init_table_and_elem(&mut self, module: &Module) -> VMState {
         for table_type in &module.table_sec {
             let table = TableInst::new(table_type.clone());
 
@@ -395,16 +400,21 @@ impl VM {
                     let elem_inst = &mut self.elements[i];
                     let mut table = self.tables[*table_idx as usize].borrow_mut();
 
-                    elem_inst
-                        .refs
-                        .iter()
-                        .enumerate()
-                        .for_each(|(i, ref_val)| table.set_elem(offset + (i as u32), ref_val.clone()));
+                    for (i, ref_val) in elem_inst.refs.iter().enumerate() {
+                        table.set_elem(offset + (i as u32), ref_val.clone())?;
+                    }
+
+                    if offset > table.size() {
+                        Err(InstError::OutofBoundTable)?;
+                    }
+
                     elem_inst.drop_();
                 }
                 ElementMode::Declarative => self.elements[i].drop_(),
                 ElementMode::Passive => continue,
             }
         }
+
+        Ok(())
     }
 }

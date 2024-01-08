@@ -5,6 +5,7 @@ mod instr;
 mod stack;
 pub mod types;
 
+pub mod errors;
 pub mod importer;
 pub mod inst;
 pub mod vm;

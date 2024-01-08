@@ -97,7 +97,7 @@ impl Decode for Module {
             let sec_data = reader.seqs()?;
             let mut sec_reader = Reader::new(&sec_data, module.data_counat_sec);
 
-            sec_counts[i] = sec_counts[i.clone()] + 1;
+            sec_counts[i] = sec_counts[i] + 1;
 
             match id {
                 Section::Custom => module.custom_sec.push(CustomSeg::decode(&mut sec_reader)?),
