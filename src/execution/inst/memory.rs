@@ -1,8 +1,12 @@
 use std::simd::ToBytes;
 
 use crate::binary::instruction::{Lane16, Lane8};
+use crate::binary::section::MaybeU32;
 use crate::binary::types::MemType;
 use crate::execution::types::v128;
+
+pub const PAGE_SIZE: u32 = 65536;
+pub const MAX_PAGE_SIZE: u32 = 65536;
 
 pub trait Memory {
     fn alloc(size: u32) -> Vec<u8> {
@@ -100,9 +104,6 @@ pub trait Memory {
     }
 }
 
-pub const PAGE_SIZE: u32 = 65536;
-pub const MAX_PAGE_SIZE: u32 = 65536;
-
 #[derive(Debug, Default)]
 pub struct MemInst {
     type_: MemType,
@@ -123,7 +124,7 @@ impl MemInst {
         &self.type_
     }
 
-    pub fn max(&self) -> Option<u32> {
+    pub fn max(&self) -> MaybeU32 {
         self.type_.max
     }
 

@@ -4,7 +4,7 @@ use std::simd::u8x16;
 use super::inst::RFuncInst;
 use crate::binary::instruction::Lane16;
 use crate::binary::module::Module;
-use crate::binary::section::FuncIdx;
+use crate::binary::section::{FuncIdx, MaybeU32};
 use crate::binary::types::ValType;
 
 pub trait ToV128 {
@@ -84,7 +84,7 @@ pub enum ValInst {
     F64(f64),
     V128(v128),
     FuncRef(Option<RefInst>),
-    ExternRef(Option<u32>),
+    ExternRef(MaybeU32),
     NullRef,
 }
 
@@ -101,7 +101,7 @@ impl ValInst {
         }
     }
 
-    pub fn new_ref(val_type: ValType, ref_inst: Option<RefInst>, idx: Option<u32>) -> Self {
+    pub fn new_ref(val_type: ValType, ref_inst: Option<RefInst>, idx: MaybeU32) -> Self {
         match val_type {
             ValType::FuncRef => Self::new_func_ref(ref_inst.unwrap()),
             ValType::ExternRef => Self::new_extern_ref(idx.unwrap()),

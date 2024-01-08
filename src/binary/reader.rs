@@ -4,19 +4,21 @@ use std::simd::u8x16;
 
 use super::instruction::Lane16;
 use super::leb128;
+use super::section::DataCountSeg;
 use crate::execution::types::{v128, ToV128};
 
 pub type DecodeResult<T> = Result<T, Box<dyn Error>>;
 
 pub struct Reader<'a> {
     buf: Cursor<&'a [u8]>,
+    pub data_count: DataCountSeg,
 }
 
 impl<'a> Reader<'a> {
-    pub fn new(data: &'a [u8]) -> Self {
+    pub fn new(data: &'a [u8], data_count: DataCountSeg) -> Self {
         let buf = Cursor::new(data);
 
-        Self { buf }
+        Self { buf, data_count }
     }
 
     pub fn bytes(&mut self, size: usize) -> DecodeResult<Vec<u8>> {

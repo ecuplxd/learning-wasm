@@ -117,8 +117,8 @@ pub enum Instruction {
     I64Store8(MemoryArg) = 0x3c,                  // i64_store8 0x3C
     I64Store16(MemoryArg) = 0x3d,                 // i64_store16 0x3D
     I64Store32(MemoryArg) = 0x3e,                 // i64_store32 0x3E
-    MemorySize(u32) = 0x3f,                       // memory_size 0x3F
-    MemoryGrow(u32) = 0x40,                       // memory_grow 0x40
+    MemorySize(u8) = 0x3f,                        // memory_size 0x3F
+    MemoryGrow(u8) = 0x40,                        // memory_grow 0x40
     I32Const(i32) = 0x41,                         // i32_const 0x41
     I64Const(i64) = 0x42,                         // i64_const 0x42
     F32Const(f32) = 0x43,                         // f32_const 0x43

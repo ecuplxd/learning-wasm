@@ -182,7 +182,7 @@ impl VM {
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-memory-size
     /// mem_idx 默认 0，暂不使用
-    pub fn memory_size(&mut self, idx: u32) {
+    pub fn memory_size(&mut self, idx: u8) {
         let size = self.mems[idx as usize].borrow().mem_size();
 
         self.push_u32(size);
@@ -190,7 +190,7 @@ impl VM {
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-memory-grow
     /// mem_idx 默认 0，暂不使用
-    pub fn memory_grow(&mut self, idx: u32) {
+    pub fn memory_grow(&mut self, idx: u8) {
         let size = self.pop_u32();
         let old_size = self.mems[idx as usize].borrow_mut().mem_grow(size);
 

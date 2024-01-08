@@ -91,28 +91,28 @@ impl Importer for VM {
 
     fn resolve_func(&self, name: &str) -> Option<RFuncInst> {
         self.exports.get(name).map(|export| match export.desc {
-            ExportDesc::Func(idx) => self.funcs[idx as usize].clone(),
+            ExportDesc::Func(idx) => Rc::clone(&self.funcs[idx as usize]),
             _ => panic!("模块不存在名为 {} 的函数导出项", name),
         })
     }
 
     fn resolve_table(&self, name: &str) -> Option<RTableInst> {
         self.exports.get(name).map(|export| match export.desc {
-            ExportDesc::Table(idx) => self.tables[idx as usize].clone(),
+            ExportDesc::Table(idx) => Rc::clone(&self.tables[idx as usize]),
             _ => panic!("模块不存在名为 {} 的表导出项", name),
         })
     }
 
     fn resolve_mem(&self, name: &str) -> Option<RMemInst> {
         self.exports.get(name).map(|export| match export.desc {
-            ExportDesc::Mem(idx) => self.mems[idx as usize].clone(),
+            ExportDesc::Mem(idx) => Rc::clone(&self.mems[idx as usize]),
             _ => panic!("模块不存在名为 {} 的内存导出项", name),
         })
     }
 
     fn resolve_global(&self, name: &str) -> Option<RGlobalInst> {
         self.exports.get(name).map(|export| match export.desc {
-            ExportDesc::Global(idx) => self.globals[idx as usize].clone(),
+            ExportDesc::Global(idx) => Rc::clone(&self.globals[idx as usize]),
             _ => panic!("模块不存在名为 {} 的全局导出项", name),
         })
     }
@@ -227,10 +227,13 @@ impl VM {
     // 执行入口函数
     pub fn call_start(&mut self) {
         if let Some(idx) = self.module.start_sec {
-            let temp = Rc::clone(&self.funcs[idx as usize]);
-            let func_inst = temp.borrow();
+            let func_inst = Rc::clone(&self.funcs[idx as usize]);
 
-            self.invoke(&func_inst, Some(vec![]));
+            {
+                let func_inst = func_inst.borrow();
+
+                self.invoke(&func_inst, Some(vec![]));
+            }
         }
     }
 }
@@ -243,23 +246,25 @@ impl VM {
 
         for import in &module.import_sec {
             match importers.get(&import.module) {
-                Some(temp) => self.resolve_import(import, temp.clone()),
+                Some(importer) => self.resolve_import(import, Rc::clone(importer)),
                 _ => panic!("找不到模块：{}", import.module),
             }
         }
     }
 
     fn resolve_import(&mut self, import: &ImportSeg, importer_: Rc<RefCell<dyn Importer>>) {
-        let binding = importer_.clone();
-        let importer = binding.borrow();
+        let importer = importer_.borrow();
 
         match import.desc {
             ImportDesc::Func(_) => match importer.resolve_func(&import.name) {
-                Some(func_inst_) => {
-                    let temp = func_inst_.clone();
-                    let func_inst = temp.borrow().as_outer(binding.clone(), &import.name);
+                Some(func_inst) => {
+                    let func_inst = func_inst.borrow();
 
-                    self.funcs.push(func_inst);
+                    {
+                        let func_inst = func_inst.as_outer(Rc::clone(&importer_), &import.name);
+
+                        self.funcs.push(func_inst);
+                    }
                 }
                 _ => panic!("找不到导入项：{:?}", import),
             },
@@ -365,7 +370,7 @@ impl VM {
                     .iter()
                     .map(|idx| {
                         let func_inst = &self.funcs[*idx as usize];
-                        let ref_inst = RefInst(*idx, func_inst.clone());
+                        let ref_inst = RefInst(*idx, Rc::clone(func_inst));
 
                         ValInst::new_ref(elem.type_, Some(ref_inst), Some(*idx))
                     })

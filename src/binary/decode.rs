@@ -3,7 +3,8 @@ use super::instruction::{Block, BlockType, BrTableArg, IfBlock, Instruction, Mem
 use super::reader::{DecodeResult, Reader};
 use super::section::{
     CodeSeg, CustomSeg, DataMode, DataSeg, ElementMode, ElementSeg, ExportDesc, ExportSeg, Expr,
-    FuncIdx, GlobalIdx, GlobalSeg, ImportDesc, ImportSeg, LabelIdx, Locals, MemIdx, TableIdx, TypeIdx,
+    FuncIdx, GlobalIdx, GlobalSeg, ImportDesc, ImportSeg, LabelIdx, Locals, MaybeU32, MemIdx, TableIdx,
+    TypeIdx,
 };
 use super::types::{FuncType, GlobalType, Limits, MemType, Mut, RefType, TableType, ValType};
 
@@ -98,7 +99,12 @@ impl Decode for TableType {
 impl Decode for Limits {
     fn decode(reader: &mut Reader) -> DecodeResult<Limits> {
         // 0，只指定 min，1 指定 min + max
-        let with_max = reader.get_leb_u32()? == 1;
+        let with_max = match reader.get_u8()? {
+            0 => false,
+            1 => true,
+            val => Err(DecodeErr::InvalidLimitMode(val))?,
+        };
+
         let limits = Limits {
             min: reader.get_leb_u32()?,
             max: match with_max {
@@ -155,6 +161,12 @@ impl Decode for ExportSeg {
     }
 }
 
+impl Decode for MaybeU32 {
+    fn decode(reader: &mut Reader) -> DecodeResult<MaybeU32> {
+        Ok(Some(reader.get_leb_u32()?))
+    }
+}
+
 impl Decode for ElementSeg {
     fn decode(reader: &mut Reader) -> DecodeResult<ElementSeg> {
         let flag = reader.get_leb_u32()?;
@@ -180,6 +192,11 @@ impl Decode for ElementSeg {
             0..=4 => ValType::FuncRef,
             _ => ValType::from(reader.get_u8()?),
         };
+
+        if !type_.is_ref_type() {
+            Err(DecodeErr::TableElemNotARef)?
+        }
+
         let elem_kind = match flag {
             1..=3 => reader.get_leb_i32()?,
             _ => 0x00,
@@ -210,13 +227,17 @@ impl Decode for CodeSeg {
     fn decode(reader: &mut Reader) -> DecodeResult<CodeSeg> {
         let size = reader.get_leb_u32()?;
         let body_bytes = reader.bytes(size as usize)?;
-        let mut body_reader = Reader::new(&body_bytes);
+        let mut body_reader = Reader::new(&body_bytes, reader.data_count);
 
         let code = CodeSeg {
             size,
             locals: Locals::decodes(&mut body_reader)?,
             body: Vec::<Expr>::decode(&mut body_reader)?,
         };
+
+        if code.local_size() >= 0x1000_0000 {
+            Err(DecodeErr::LocalsTooLarge)?
+        }
 
         Ok(code)
     }
@@ -252,6 +273,7 @@ impl Decode for Expr {
     fn decode(reader: &mut Reader) -> DecodeResult<(Expr, Instruction)> {
         let mut exprs = vec![];
         let mut last_instr = Instruction::Nop;
+        let data_count = reader.data_count;
 
         while reader.not_end()? {
             let instr = Instruction::decode(reader)?;
@@ -261,6 +283,18 @@ impl Decode for Expr {
                     last_instr = instr;
 
                     break;
+                }
+                Instruction::MemoryGrow(idx) if idx != 0 => {
+                    Err(DecodeErr::NotZero("MemoryGrow".to_string(), idx))?
+                }
+                Instruction::MemorySize(idx) if idx != 0 => {
+                    Err(DecodeErr::NotZero("MemorySize".to_string(), idx))?
+                }
+                Instruction::MemoryInit(_, _) if data_count.is_none() => {
+                    Err(DecodeErr::LossDataCount("MemoryInit".to_string()))?
+                }
+                Instruction::DataDrop(_) if data_count.is_none() => {
+                    Err(DecodeErr::LossDataCount("DataDrop".to_string()))?
                 }
                 _ => exprs.push(instr),
             }
@@ -353,8 +387,8 @@ impl Decode for Instruction {
             0x3c => Instruction::I64Store8(MemoryArg::decode(reader)?),
             0x3d => Instruction::I64Store16(MemoryArg::decode(reader)?),
             0x3e => Instruction::I64Store32(MemoryArg::decode(reader)?),
-            0x3f => Instruction::MemorySize(reader.get_leb_u32()?),
-            0x40 => Instruction::MemoryGrow(reader.get_leb_u32()?),
+            0x3f => Instruction::MemorySize(reader.get_u8()?),
+            0x40 => Instruction::MemoryGrow(reader.get_u8()?),
             0x41 => Instruction::I32Const(reader.get_leb_i32()?),
             0x42 => Instruction::I64Const(reader.get_leb_i64()?),
             0x43 => Instruction::F32Const(reader.get_f32()?),

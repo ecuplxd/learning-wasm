@@ -5,19 +5,23 @@ use super::types::{GlobalType, MemType, TableType, ValType};
 use crate::execution::types::{ValInst, ValInsts};
 
 /// Indices
-// 简写 x
 pub type TypeIdx = u32;
 pub type FuncIdx = u32;
 pub type TableIdx = u32;
 pub type MemIdx = u32;
 pub type GlobalIdx = u32;
 pub type LocalIdx = u32;
-// 简写 l
+
+// 规范描述里简写成 l
 pub type LabelIdx = u32;
+
+pub type MaybeU32 = Option<u32>;
+pub type StartSeg = MaybeU32;
+pub type DataCountSeg = MaybeU32;
 
 /// Sections
 #[repr(u8)]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Section {
     Custom = 0x00,
     Type,

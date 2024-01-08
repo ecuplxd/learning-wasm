@@ -1,6 +1,7 @@
 use super::errors::DecodeErr;
 use super::instruction::BlockType;
 use super::reader::DecodeResult;
+use super::section::MaybeU32;
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -48,7 +49,7 @@ impl ValType {
         matches!(self, Self::V128)
     }
 
-    fn is_ref_type(&self) -> bool {
+    pub fn is_ref_type(&self) -> bool {
         matches!(self, Self::FuncRef | Self::ExternRef | Self::NullRef)
     }
 }
@@ -112,7 +113,7 @@ impl PartialEq for FuncType {
 #[derive(Debug, Default, Clone)]
 pub struct Limits {
     pub min: u32,
-    pub max: Option<u32>,
+    pub max: MaybeU32,
 }
 
 pub type MemType = Limits;

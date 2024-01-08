@@ -217,10 +217,10 @@ impl VM {
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-call
     pub fn call(&mut self, idx: u32) {
-        let temp = Rc::clone(&self.funcs[idx as usize]);
+        let func_inst = Rc::clone(&self.funcs[idx as usize]);
 
         {
-            let func_inst = temp.borrow();
+            let func_inst = func_inst.borrow();
 
             self.invoke(&func_inst, None);
         }
@@ -240,14 +240,17 @@ impl VM {
 
             let module = Rc::clone(&self.module);
             let ft = &module.type_sec[type_idx as usize];
-            let temp = table.get_func_inst(i);
-            let func_inst = temp.borrow();
+            let func_inst = table.get_func_inst(i);
 
-            if ft != func_inst.get_type() {
-                panic!("间接调用参数 {:?} 不匹配，应为 {:?}", ft, func_inst.get_type());
+            {
+                let func_inst = func_inst.borrow();
+
+                if ft != func_inst.get_type() {
+                    panic!("间接调用参数 {:?} 不匹配，应为 {:?}", ft, func_inst.get_type());
+                }
+
+                self.invoke(&func_inst, None);
             }
-
-            self.invoke(&func_inst, None);
         }
     }
 }

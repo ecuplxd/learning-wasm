@@ -1,11 +1,12 @@
 use std::fs;
 
 use super::decode::Decode;
-use super::encode::{Encode, Encodes};
+use super::encode::{encode_maybeu32_sec, Encode, Encodes};
 use super::errors::DecodeErr;
 use super::reader::{DecodeResult, Reader};
 use super::section::{
-    CodeSeg, CustomSeg, DataSeg, ElementSeg, ExportSeg, FuncIdx, GlobalSeg, ImportSeg, Section, TypeIdx,
+    CodeSeg, CustomSeg, DataCountSeg, DataSeg, ElementSeg, ExportSeg, GlobalSeg, ImportSeg, Section,
+    StartSeg, TypeIdx,
 };
 use super::types::*;
 use super::validate::{Validate, ValidateSelf};
@@ -26,12 +27,12 @@ pub struct Module {
     pub mem_sec: Vec<MemType>,
     pub global_sec: Vec<GlobalSeg>,
     pub export_sec: Vec<ExportSeg>,
-    pub start_sec: Option<FuncIdx>,
+    pub start_sec: StartSeg,
     pub elem_sec: Vec<ElementSeg>,
     pub code_sec: Vec<CodeSeg>,
     pub data_sec: Vec<DataSeg>,
     /// 校验 data_sec
-    data_counat_sec: Option<u32>,
+    pub data_counat_sec: DataCountSeg,
 }
 
 impl Module {
@@ -50,7 +51,7 @@ impl Module {
     }
 
     pub fn from_data(data: Vec<u8>) -> DecodeResult<Self> {
-        let mut reader = Reader::new(&data);
+        let mut reader = Reader::new(&data, None);
 
         Self::decode(&mut reader)
     }
@@ -91,11 +92,21 @@ impl Decode for Module {
         };
 
         let mut module = Module::new();
+        let mut sec_counts: Vec<usize> = vec![0; 13];
 
         while reader.not_end()? {
-            let id = Section::from_u8(reader.get_u8()?)?;
+            let i = reader.get_u8()? as usize;
+            let id = Section::from_u8(i as u8)?;
+
+            // 使用 onXXRead 回调方式实现
+            if id != Section::Custom && sec_counts[i] >= 1 {
+                Err(DecodeErr::MultipleSection(id.clone(), sec_counts[i]))?
+            }
+
             let sec_data = reader.seqs()?;
-            let mut sec_reader = Reader::new(&sec_data);
+            let mut sec_reader = Reader::new(&sec_data, module.data_counat_sec);
+
+            sec_counts[i] = sec_counts[i.clone()] + 1;
 
             match id {
                 Section::Custom => module.custom_sec.push(CustomSeg::decode(&mut sec_reader)?),
@@ -106,15 +117,43 @@ impl Decode for Module {
                 Section::Memory => module.mem_sec = MemType::decodes(&mut sec_reader)?,
                 Section::Global => module.global_sec = GlobalSeg::decodes(&mut sec_reader)?,
                 Section::Export => module.export_sec = ExportSeg::decodes(&mut sec_reader)?,
-                Section::Start => module.start_sec = Some(sec_reader.get_leb_u32()?),
+                Section::Start => module.start_sec = StartSeg::decode(&mut sec_reader)?,
                 Section::Element => module.elem_sec = ElementSeg::decodes(&mut sec_reader)?,
                 Section::Code => module.code_sec = CodeSeg::decodes(&mut sec_reader)?,
                 Section::Data => module.data_sec = DataSeg::decodes(&mut sec_reader)?,
-                Section::DataCount => module.data_counat_sec = Some(sec_reader.get_leb_u32()?),
+                Section::DataCount => module.data_counat_sec = DataCountSeg::decode(&mut sec_reader)?,
             };
+
+            if sec_reader.remain().is_ok_and(|data| !data.is_empty()) {
+                Err(DecodeErr::SectionSizeMismatch)?;
+            }
         }
 
+        module.validate_decode()?;
+
         Ok(module)
+    }
+}
+
+impl Module {
+    fn validate_decode(&self) -> DecodeResult<()> {
+        if self.code_sec.len() != self.func_sec.len() {
+            Err(DecodeErr::FuncAndCodeNotEq(
+                self.code_sec.len(),
+                self.func_sec.len(),
+            ))?;
+        }
+
+        if let Some(count) = self.data_counat_sec {
+            if self.data_sec.len() != (count as usize) {
+                Err(DecodeErr::DataAndDataCountNotEq(
+                    self.data_sec.len(),
+                    count as usize,
+                ))?
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -132,8 +171,9 @@ impl Encode for Module {
         results.extend(Module::encode_sec(Section::Memory, &self.mem_sec));
         results.extend(Module::encode_sec(Section::Global, &self.global_sec));
         results.extend(Module::encode_sec(Section::Export, &self.export_sec));
-        results.extend(self.start_sec.encode());
+        results.extend(encode_maybeu32_sec(Section::Start, self.start_sec));
         results.extend(Module::encode_sec(Section::Element, &self.elem_sec));
+        results.extend(encode_maybeu32_sec(Section::DataCount, self.data_counat_sec));
         results.extend(Module::encode_sec(Section::Code, &self.code_sec));
         results.extend(Module::encode_sec(Section::Data, &self.data_sec));
         results.extend(self.custom_sec.iter().flat_map(|custom| custom.encode()));

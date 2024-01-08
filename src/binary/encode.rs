@@ -2,7 +2,7 @@ use super::instruction::{Block, BlockType, BrTableArg, IfBlock, Instruction, Mem
 use super::leb128::{encode_name, encode_signed, encode_u32, encode_unsigned, encode_usize};
 use super::section::{
     CodeSeg, CustomSeg, DataMode, DataSeg, ElementMode, ElementSeg, ExportDesc, ExportSeg, Expr,
-    FuncIdx, GlobalSeg, ImportDesc, ImportSeg, Locals, Section, TypeIdx,
+    GlobalSeg, ImportDesc, ImportSeg, Locals, MaybeU32, Section, TypeIdx,
 };
 use super::types::{FuncType, GlobalType, Limits, RefType, TableType, ValType};
 
@@ -168,20 +168,18 @@ impl Encode for ExportSeg {
     }
 }
 
-impl Encode for Option<FuncIdx> {
-    fn encode(&self) -> Vec<u8> {
-        let mut result = vec![];
+pub fn encode_maybeu32_sec(sec_id: Section, v: MaybeU32) -> Vec<u8> {
+    let mut result = vec![];
 
-        if let Some(idx) = self {
-            let data = idx.encode();
+    if let Some(data) = v {
+        let data = data.encode();
 
-            result.push(Section::Start as u8);
-            result.extend(encode_usize(data.len()));
-            result.extend(data);
-        }
-
-        result
+        result.push(sec_id as u8);
+        result.extend(encode_usize(data.len()));
+        result.extend(data);
     }
+
+    result
 }
 
 impl Encode for ElementSeg {
@@ -347,8 +345,8 @@ impl Instruction {
             Instruction::I64Store8(memarg) => memarg.encode(),
             Instruction::I64Store16(memarg) => memarg.encode(),
             Instruction::I64Store32(memarg) => memarg.encode(),
-            Instruction::MemorySize(data) => encode_u32(*data),
-            Instruction::MemoryGrow(data) => encode_u32(*data),
+            Instruction::MemorySize(data) => vec![*data],
+            Instruction::MemoryGrow(data) => vec![*data],
             Instruction::I32Const(data) => encode_signed(*data as i64),
             Instruction::I64Const(data) => encode_signed(*data),
             Instruction::F32Const(data) => data.to_le_bytes().to_vec(),
