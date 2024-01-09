@@ -604,7 +604,7 @@ mod test {
         ($name:ident) => {
             paste! {
                 #[test]
-                fn [<test_ $name>]()  {
+                fn [<test_ $name>]() {
                     let (root, wabt_json) = load_wabt_json(stringify!($name));
 
                     run_test(root, wabt_json);

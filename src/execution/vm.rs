@@ -307,7 +307,6 @@ impl VM {
             ImportDesc::Mem(type_) => match importer.resolve_mem(&import.name) {
                 Some(inst) => {
                     if inst.borrow().get_type().incompatible(type_) {
-                        println!("{:?} {:?}", inst.borrow().get_type(), type_);
                         Err(LinkError::IncompatibleImportType)?;
                     }
 

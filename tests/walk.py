@@ -1,11 +1,15 @@
 import os
+import platform
 
 
 ROOT = os.getcwd()
 OUTPUT = "output"
 TESTSUITE = "testsuite"
 WAST_EXT = ".wast"
-EXE = os.path.join(ROOT, "wast2json.exe")
+EXE = os.path.join(ROOT, "wast2json")
+
+if platform.system() == "Windows":
+    EXE += ".exe"
 
 
 def norm_join(p1, p2):

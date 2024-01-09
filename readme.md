@@ -13,6 +13,8 @@ cargo install cargo-tarpaulin
 cargo tarpaulin --out Html
 ```
 
+[wabt 下载](https://github.com/WebAssembly/wabt/releases)
+
 测试结果：
 
 ```shell
