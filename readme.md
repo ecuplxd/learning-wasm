@@ -6,6 +6,7 @@
 git submodule init
 git submodule update
 cd tests
+chmod +x wast2json
 # 使用官方 wabt 下的 wast2json 工具，if 和 comments 会解析失败，疑似 wabt 的 bug
 python walk.py
 # linux 系统可能需要安装 openssl

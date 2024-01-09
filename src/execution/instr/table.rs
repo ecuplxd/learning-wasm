@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use crate::execution::errors::VMState;
 use crate::execution::stack::operand::Operand;
 use crate::execution::vm::VM;
 
@@ -18,11 +19,11 @@ impl VM {
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-table-set
-    pub fn table_set(&mut self, idx: u32) {
+    pub fn table_set(&mut self, idx: u32) -> VMState {
         let ref_val = self.pop();
         let i = self.pop_u32();
 
-        self.tables[idx as usize].borrow_mut().set_elem(i, ref_val);
+        self.tables[idx as usize].borrow_mut().set_elem(i, ref_val)
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-table-init

@@ -28,3 +28,9 @@ pub enum LinkError {
     #[error("导入项类型不匹配")]
     IncompatibleImportType,
 }
+
+#[derive(thiserror::Error, Debug)]
+pub enum Trap {
+    #[error("Unreachable")]
+    Unreachable,
+}

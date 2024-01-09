@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use super::errors::VMState;
 use super::inst::{RFuncInst, RGlobalInst, RMemInst, RTableInst};
 use super::types::ValInsts;
 
@@ -28,7 +29,7 @@ pub trait Importer {
         None
     }
 
-    fn call_by_name(&mut self, name: &str, args: ValInsts) -> ValInsts;
+    fn call_by_name(&mut self, name: &str, args: ValInsts) -> VMState<ValInsts>;
 }
 
 pub type MImporter = HashMap<String, Rc<RefCell<dyn Importer>>>;

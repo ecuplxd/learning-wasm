@@ -98,10 +98,10 @@ pub trait Memory {
         v128::new(bytes)
     }
 
-    fn mem_write_v128(&mut self, addr: u64, v: v128) {
+    fn mem_write_v128(&mut self, addr: u64, v: v128) -> VMState {
         let bytes = v.as_i32x4().to_le_bytes().to_array();
 
-        self.mem_writes(addr, &bytes);
+        self.mem_writes(addr, &bytes)
     }
 }
 

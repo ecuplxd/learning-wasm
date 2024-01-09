@@ -3,6 +3,7 @@ use std::rc::Rc;
 use crate::binary::instruction::{Block, BlockType, BrTableArg, IfBlock};
 use crate::binary::section::{CodeSeg, Expr, LabelIdx};
 use crate::binary::types::{FuncType, ValType};
+use crate::execution::errors::{Trap, VMState};
 use crate::execution::importer::Importer;
 use crate::execution::inst::function::{FuncInst, FuncInstKind};
 use crate::execution::stack::frame::{CallStack, Frame, LabelKind};
@@ -73,7 +74,7 @@ impl VM {
 /// 实现函数调用逻辑
 impl VM {
     /// args 存在（外部手动调用的情况），则要将参数压栈，结果出栈
-    pub fn invoke(&mut self, func_inst: &FuncInst, args: Option<ValInsts>) -> ValInsts {
+    pub fn invoke(&mut self, func_inst: &FuncInst, args: Option<ValInsts>) -> VMState<ValInsts> {
         let pop_push = args.is_some();
         let type_ = func_inst.get_type().clone();
 
@@ -82,42 +83,53 @@ impl VM {
         }
 
         match &func_inst.kind {
-            FuncInstKind::Inner(code) => unsafe { self.invoke_inner_func(*code, &type_) },
+            FuncInstKind::Inner(code) => unsafe {
+                self.invoke_inner_func(*code, &type_)?;
+            },
             FuncInstKind::Outer(ctx, name) => {
                 // 存在嵌套调用，使用指针而不是 borrow_mut 绕过检查
                 let ptr = ctx.as_ptr();
                 let importer = unsafe { ptr.as_mut().unwrap() };
 
-                self.invoke_outer_func(importer, name, &type_);
+                self.invoke_outer_func(importer, name, &type_)?;
             }
-        }
+        };
 
-        match pop_push {
+        let ret = match pop_push {
             true => self.pop_n_and_check_type(&type_.results),
             false => vec![],
-        }
+        };
+
+        Ok(ret)
     }
 
     /// # Safety
     ///
     /// 调用内部函数 codeseg 必存在
-    pub unsafe fn invoke_inner_func(&mut self, code_ptr: *const CodeSeg, type_: &FuncType) {
+    pub unsafe fn invoke_inner_func(&mut self, code_ptr: *const CodeSeg, type_: &FuncType) -> VMState {
         match unsafe { code_ptr.as_ref() } {
             Some(code) => {
                 self.enter_block(LabelKind::Call, type_, &code.body);
                 self.push_n(code.init_local());
 
-                self.start_loop();
+                self.start_loop()
             }
             None => panic!("{:?} 没有可供执行的函数体", code_ptr),
         }
     }
 
-    pub fn invoke_outer_func(&mut self, importer: &mut dyn Importer, name: &str, type_: &FuncType) {
+    pub fn invoke_outer_func(
+        &mut self,
+        importer: &mut dyn Importer,
+        name: &str,
+        type_: &FuncType,
+    ) -> VMState {
         let args = self.pop_n_and_check_type(&type_.params);
-        let rets = importer.call_by_name(name, args);
+        let rets = importer.call_by_name(name, args)?;
 
         self.push_n_and_check_type(&type_.results, rets);
+
+        Ok(())
     }
 
     pub fn pop_n_and_check_type(&mut self, val_types: &[ValType]) -> ValInsts {
@@ -138,8 +150,8 @@ impl VM {
 /// 实现指令逻辑
 impl VM {
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-unreachable
-    pub fn unreachable(&mut self) {
-        panic!("unreachable");
+    pub fn unreachable(&mut self) -> VMState {
+        Err(Trap::Unreachable)?
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-nop
@@ -216,18 +228,20 @@ impl VM {
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-call
-    pub fn call(&mut self, idx: u32) {
+    pub fn call(&mut self, idx: u32) -> VMState {
         let func_inst = Rc::clone(&self.funcs[idx as usize]);
 
         {
             let func_inst = func_inst.borrow();
 
-            self.invoke(&func_inst, None);
+            self.invoke(&func_inst, None)?;
         }
+
+        Ok(())
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-call-indirect
-    pub fn call_indirect(&mut self, type_idx: u32, table_idx: u32) {
+    pub fn call_indirect(&mut self, type_idx: u32, table_idx: u32) -> VMState {
         let i = self.pop_u32();
         let table = Rc::clone(&self.tables[table_idx as usize]);
 
@@ -249,8 +263,10 @@ impl VM {
                     panic!("间接调用参数 {:?} 不匹配，应为 {:?}", ft, func_inst.get_type());
                 }
 
-                self.invoke(&func_inst, None);
+                self.invoke(&func_inst, None)?;
             }
         }
+
+        Ok(())
     }
 }

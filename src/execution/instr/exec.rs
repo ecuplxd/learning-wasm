@@ -1,12 +1,13 @@
 use crate::binary::instruction::Instruction;
+use crate::execution::errors::VMState;
 use crate::execution::vm::VM;
 
 impl VM {
-    pub fn exec_instr(&mut self, instr: &Instruction) {
+    pub fn exec_instr(&mut self, instr: &Instruction) -> VMState {
         println!("执行指令：{:?}", instr);
 
         match instr {
-            Instruction::Unreachable => self.unreachable(),
+            Instruction::Unreachable => self.unreachable()?,
             Instruction::Nop => self.nop(),
             Instruction::Block(block) => self.block(block),
             Instruction::Loop(block) => self.loop_(block),
@@ -17,8 +18,8 @@ impl VM {
             Instruction::BrIf(l) => self.br_if(*l),
             Instruction::BrTable(arg) => self.br_table(arg),
             Instruction::Return => self.return_(),
-            Instruction::Call(idx) => self.call(*idx),
-            Instruction::CallIndirect(type_idx, table_idx) => self.call_indirect(*type_idx, *table_idx),
+            Instruction::Call(idx) => self.call(*idx)?,
+            Instruction::CallIndirect(type_i, table_i) => self.call_indirect(*type_i, *table_i)?,
             Instruction::Drop => self.drop_(),
             Instruction::Select => self.select(),
             Instruction::Select2(x, type_) => self.select2(*x, type_),
@@ -28,7 +29,7 @@ impl VM {
             Instruction::GlobalGet(idx) => self.global_get(*idx),
             Instruction::GlobalSet(idx) => self.global_set(*idx),
             Instruction::TableGet(idx) => self.table_get(*idx),
-            Instruction::TableSet(idx) => self.table_set(*idx),
+            Instruction::TableSet(idx) => self.table_set(*idx)?,
             Instruction::I32Load(memarg) => self.i32_load(memarg),
             Instruction::I64Load(memarg) => self.i64_load(memarg),
             Instruction::F32Load(memarg) => self.f32_load(memarg),
@@ -43,15 +44,15 @@ impl VM {
             Instruction::I64Load16U(memarg) => self.i64_load16_u(memarg),
             Instruction::I64Load32S(memarg) => self.i64_load32_s(memarg),
             Instruction::I64Load32U(memarg) => self.i64_load32_u(memarg),
-            Instruction::I32Store(memarg) => self.i32_store(memarg),
-            Instruction::I64Store(memarg) => self.i64_store(memarg),
-            Instruction::F32Store(memarg) => self.f32_store(memarg),
-            Instruction::F64Store(memarg) => self.f64_store(memarg),
-            Instruction::I32Store8(memarg) => self.i32_store8(memarg),
-            Instruction::I32Store16(memarg) => self.i32_store16(memarg),
-            Instruction::I64Store8(memarg) => self.i64_store8(memarg),
-            Instruction::I64Store16(memarg) => self.i64_store16(memarg),
-            Instruction::I64Store32(memarg) => self.i64_store32(memarg),
+            Instruction::I32Store(memarg) => self.i32_store(memarg)?,
+            Instruction::I64Store(memarg) => self.i64_store(memarg)?,
+            Instruction::F32Store(memarg) => self.f32_store(memarg)?,
+            Instruction::F64Store(memarg) => self.f64_store(memarg)?,
+            Instruction::I32Store8(memarg) => self.i32_store8(memarg)?,
+            Instruction::I32Store16(memarg) => self.i32_store16(memarg)?,
+            Instruction::I64Store8(memarg) => self.i64_store8(memarg)?,
+            Instruction::I64Store16(memarg) => self.i64_store16(memarg)?,
+            Instruction::I64Store32(memarg) => self.i64_store32(memarg)?,
             Instruction::MemorySize(idx) => self.memory_size(*idx),
             Instruction::MemoryGrow(idx) => self.memory_grow(*idx),
             Instruction::I32Const(v) => self.i32_const(*v),
@@ -197,10 +198,10 @@ impl VM {
             Instruction::I64TruncSatF32U => self.i64_trunc_sat_f32_u(),
             Instruction::I64TruncSatF64S => self.i64_trunc_sat_f64_s(),
             Instruction::I64TruncSatF64U => self.i64_trunc_sat_f64_u(),
-            Instruction::MemoryInit(segment, idx) => self.memory_init(*segment, *idx),
+            Instruction::MemoryInit(segment, idx) => self.memory_init(*segment, *idx)?,
             Instruction::DataDrop(data_idx) => self.data_drop(*data_idx),
-            Instruction::MemoryCopy(src_idx, dst_idx) => self.memory_copy(*src_idx, *dst_idx),
-            Instruction::MemoryFill(idx) => self.memory_fill(*idx),
+            Instruction::MemoryCopy(src_idx, dst_idx) => self.memory_copy(*src_idx, *dst_idx)?,
+            Instruction::MemoryFill(idx) => self.memory_fill(*idx)?,
             Instruction::TableInit(elem_idx, table_idx) => self.table_init(*elem_idx, *table_idx),
             Instruction::ElemDrop(idx) => self.elem_drop(*idx),
             Instruction::TableCopy(dst_idx, src_idx) => self.table_copy(*dst_idx, *src_idx),
@@ -218,7 +219,7 @@ impl VM {
             Instruction::V128Load16Splat(memarg) => self.v128_load16_splat(memarg),
             Instruction::V128Load32Splat(memarg) => self.v128_load32_splat(memarg),
             Instruction::V128Load64Splat(memarg) => self.v128_load64_splat(memarg),
-            Instruction::V128Store(memarg) => self.v128_store(memarg),
+            Instruction::V128Store(memarg) => self.v128_store(memarg)?,
             Instruction::V128Const(v) => self.v128_const(*v),
             Instruction::I8x16Shuffle(lane_16) => self.i8x16_shuffle(*lane_16),
             Instruction::I8x16Swizzle => self.i8x16_swizzle(),
@@ -295,10 +296,10 @@ impl VM {
             Instruction::V128Load16Lane(memarg, laneidx) => self.v128_load16_lane(memarg, *laneidx),
             Instruction::V128Load32Lane(memarg, laneidx) => self.v128_load32_lane(memarg, *laneidx),
             Instruction::V128Load64Lane(memarg, laneidx) => self.v128_load64_lane(memarg, *laneidx),
-            Instruction::V128Store8Lane(memarg, laneidx) => self.v128_store8_lane(memarg, *laneidx),
-            Instruction::V128Store16Lane(memarg, laneidx) => self.v128_store16_lane(memarg, *laneidx),
-            Instruction::V128Store32Lane(memarg, laneidx) => self.v128_store32_lane(memarg, *laneidx),
-            Instruction::V128Store64Lane(memarg, laneidx) => self.v128_store64_lane(memarg, *laneidx),
+            Instruction::V128Store8Lane(memarg, laneidx) => self.v128_store8_lane(memarg, *laneidx)?,
+            Instruction::V128Store16Lane(memarg, laneidx) => self.v128_store16_lane(memarg, *laneidx)?,
+            Instruction::V128Store32Lane(memarg, laneidx) => self.v128_store32_lane(memarg, *laneidx)?,
+            Instruction::V128Store64Lane(memarg, laneidx) => self.v128_store64_lane(memarg, *laneidx)?,
             Instruction::V128Load32Zero(memarg) => self.v128_load32_zero(memarg),
             Instruction::V128Load64Zero(memarg) => self.v128_load64_zero(memarg),
             Instruction::F32x4DemoteF64x2Zero => self.f32x4_demote_f64x2_zero(),
@@ -443,6 +444,8 @@ impl VM {
             Instruction::I32x4TruncSatF64x2UZero(_) => self.i32x4_trunc_sat_f64x2_u_zero(),
             Instruction::F64x2ConvertLowI32x4S(_) => self.f64x2_convert_low_i32x4_s(),
             Instruction::F64x2ConvertLowI32x4U(_) => self.f64x2_convert_low_i32x4_u(),
-        }
+        };
+
+        Ok(())
     }
 }

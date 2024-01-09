@@ -4,6 +4,7 @@ use std::simd::{f32x4, f64x2, i16x8, i32x4, i64x2, i8x16, u16x8, u32x4, u64x2, u
 
 use super::trunc_sat::{trunc_sat_s, trunc_sat_u, TruncSize};
 use crate::binary::instruction::{Lane16, LaneIdx, MemoryArg};
+use crate::execution::errors::VMState;
 use crate::execution::inst::memory::Memory;
 use crate::execution::stack::operand::Operand;
 use crate::execution::types::{v128, ToV128};
@@ -236,44 +237,44 @@ impl VM {
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-store
-    pub fn v128_store(&mut self, memarg: &MemoryArg) {
+    pub fn v128_store(&mut self, memarg: &MemoryArg) -> VMState {
         let v = self.pop_v128();
         let addr = self.get_mem_addr(memarg);
 
-        self.mem_write_v128(addr, v);
+        self.mem_write_v128(addr, v)
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-store-lane
-    pub fn v128_store8_lane(&mut self, memarg: &MemoryArg, laneidx: LaneIdx) {
+    pub fn v128_store8_lane(&mut self, memarg: &MemoryArg, laneidx: LaneIdx) -> VMState {
         let v = self.pop_v128().as_u8x16();
         let addr = self.get_mem_addr(memarg);
         let lane_data = v[laneidx as usize];
 
-        self.mem_write(addr, lane_data);
+        self.mem_write(addr, lane_data)
     }
 
-    pub fn v128_store16_lane(&mut self, memarg: &MemoryArg, laneidx: LaneIdx) {
+    pub fn v128_store16_lane(&mut self, memarg: &MemoryArg, laneidx: LaneIdx) -> VMState {
         let v = self.pop_v128().as_u16x8();
         let addr = self.get_mem_addr(memarg);
         let lane_data = v[laneidx as usize];
 
-        self.mem_writes(addr, &lane_data.to_le_bytes());
+        self.mem_writes(addr, &lane_data.to_le_bytes())
     }
 
-    pub fn v128_store32_lane(&mut self, memarg: &MemoryArg, laneidx: LaneIdx) {
+    pub fn v128_store32_lane(&mut self, memarg: &MemoryArg, laneidx: LaneIdx) -> VMState {
         let v = self.pop_v128().as_u32x4();
         let addr = self.get_mem_addr(memarg);
         let lane_data = v[laneidx as usize];
 
-        self.mem_writes(addr, &lane_data.to_le_bytes());
+        self.mem_writes(addr, &lane_data.to_le_bytes())
     }
 
-    pub fn v128_store64_lane(&mut self, memarg: &MemoryArg, laneidx: LaneIdx) {
+    pub fn v128_store64_lane(&mut self, memarg: &MemoryArg, laneidx: LaneIdx) -> VMState {
         let v = self.pop_v128().as_u64x2();
         let addr = self.get_mem_addr(memarg);
         let lane_data = v[laneidx as usize];
 
-        self.mem_writes(addr, &lane_data.to_le_bytes());
+        self.mem_writes(addr, &lane_data.to_le_bytes())
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-vconst

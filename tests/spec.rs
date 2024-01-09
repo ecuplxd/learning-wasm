@@ -309,11 +309,11 @@ mod run {
     }
 
     pub trait Execute {
-        fn run(&self, maps: MImporter) -> (Vec<ValInst>, String);
+        fn run(&self, maps: MImporter) -> VMState<(Vec<ValInst>, String)>;
     }
 
     impl Execute for Action {
-        fn run(&self, maps: MImporter) -> (Vec<ValInst>, String) {
+        fn run(&self, maps: MImporter) -> VMState<(Vec<ValInst>, String)> {
             match self {
                 Action::Get(action) => action.run(maps),
                 Action::Invoke(action) => action.run(maps),
@@ -322,20 +322,22 @@ mod run {
     }
 
     impl Execute for GetAction {
-        fn run(&self, maps: MImporter) -> (Vec<ValInst>, String) {
+        fn run(&self, maps: MImporter) -> VMState<(Vec<ValInst>, String)> {
             let vm_ = Module::get(self.module.clone(), maps);
             let vm = vm_.borrow();
             let name = vm.get_name().to_string();
 
-            match vm.resolve_global(&self.field) {
-                Some(global) => (vec![global.borrow().value()], name),
-                None => (vec![], name),
-            }
+            let ret = match vm.resolve_global(&self.field) {
+                Some(global) => vec![global.borrow().value()],
+                None => vec![],
+            };
+
+            Ok((ret, name))
         }
     }
 
     impl Execute for InvokeAction {
-        fn run(&self, maps: MImporter) -> (Vec<ValInst>, String) {
+        fn run(&self, maps: MImporter) -> VMState<(Vec<ValInst>, String)> {
             let vm_ = Module::get(self.module.clone(), maps);
             let mut vm = vm_.borrow_mut();
             let name = vm.get_name().to_string();
@@ -347,9 +349,9 @@ mod run {
                 println!("");
             }
 
-            let rets = vm.call_by_name(&self.field, args);
+            let rets = vm.call_by_name(&self.field, args)?;
 
-            (rets, name)
+            Ok((rets, name))
         }
     }
 
@@ -395,7 +397,7 @@ mod run {
 
     impl AssertReturn {
         pub fn run(&self, maps: MImporter) {
-            let (rets, vm_name) = self.action.run(maps.clone());
+            let (rets, vm_name) = self.action.run(maps.clone()).expect("正常返回");
             let temp = Module::get(Some(vm_name), maps);
             let vm = temp.borrow();
 
@@ -455,6 +457,7 @@ mod spec_test {
     use std::rc::Rc;
 
     use wasm::binary::types::{FuncType, GlobalType, Limits, RefType, TableType, ValType};
+    use wasm::execution::errors::VMState;
     use wasm::execution::importer::Importer;
     use wasm::execution::inst::function::FuncInst;
     use wasm::execution::inst::global::GlobalInst;
@@ -568,8 +571,8 @@ mod spec_test {
             Some(Rc::new(RefCell::new(global_inst)))
         }
 
-        fn call_by_name(&mut self, name: &str, args: ValInsts) -> ValInsts {
-            match name {
+        fn call_by_name(&mut self, name: &str, args: ValInsts) -> VMState<ValInsts> {
+            let ret = match name {
                 "print" => SpecTestModule::print(args),
                 "print_i32" => SpecTestModule::print_i32(args),
                 "print_i64" => SpecTestModule::print_i64(args),
@@ -580,7 +583,9 @@ mod spec_test {
                 "ret_11" => SpecTestModule::ret_11(args),
                 "ret_22" => SpecTestModule::ret_22(args),
                 _ => unimplemented!("SpecTestModule call_by_name：{}", name),
-            }
+            };
+
+            Ok(ret)
         }
     }
 }
@@ -646,7 +651,7 @@ mod test {
                     maps.insert(name.clone(), vm_rc);
                 }
                 CommandType::Action { action } => {
-                    action.run(maps_copy);
+                    action.run(maps_copy).expect("正常运行");
                 }
                 CommandType::AssertReturn(action) => action.run(maps_copy),
                 // CommandType::AssertExhaustion(exhaustion) => todo!(),
@@ -664,11 +669,6 @@ mod test {
                     }
                 }
                 CommandType::AssertUninstantiable(module) => {
-                    // 需要先处理 unreachable
-                    if module.filename == "linking.39.wasm" || module.filename == "start.8.wasm" {
-                        return;
-                    }
-
                     if module.is_binary_module() {
                         let name = Some("uninstantiable".to_string());
                         let (vm, _) = Module::create(&root, &module.filename, name, maps_copy);

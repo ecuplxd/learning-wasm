@@ -55,7 +55,7 @@ impl VM {
         }
 
         vm.init()?;
-        vm.call_start();
+        vm.call_start()?;
 
         Ok(vm)
     }
@@ -130,7 +130,7 @@ impl Importer for VM {
         }
     }
 
-    fn call_by_name(&mut self, name: &str, args: ValInsts) -> ValInsts {
+    fn call_by_name(&mut self, name: &str, args: ValInsts) -> VMState<ValInsts> {
         match self.resolve_func(name) {
             Some(ptr) => {
                 let func_inst = ptr.borrow();
@@ -217,7 +217,7 @@ impl VM {
         self.frames = vec![];
     }
 
-    pub fn start_loop(&mut self) {
+    pub fn start_loop(&mut self) -> VMState {
         let depth = self.depth();
 
         while self.depth() >= depth {
@@ -230,24 +230,28 @@ impl VM {
 
                     frame.pc += 1;
 
-                    self.exec_instr(instr);
+                    self.exec_instr(instr)?;
                 }
                 None => panic!("frame {:?} 找不到可以执行的指令", frame),
             };
         }
+
+        Ok(())
     }
 
     // 执行入口函数
-    pub fn call_start(&mut self) {
+    pub fn call_start(&mut self) -> VMState {
         if let Some(idx) = self.module.start_sec {
             let func_inst = Rc::clone(&self.funcs[idx as usize]);
 
             {
                 let func_inst = func_inst.borrow();
 
-                self.invoke(&func_inst, Some(vec![]));
+                self.invoke(&func_inst, Some(vec![]))?;
             }
         }
+
+        Ok(())
     }
 }
 
@@ -337,7 +341,7 @@ impl VM {
         self.init_funcs(module.as_ref());
         self.init_table_and_elem(module.as_ref())?;
         self.init_mem_and_data(module.as_ref())?;
-        self.init_global(module.as_ref());
+        self.init_global(module.as_ref())?;
 
         for export in &module.export_sec {
             self.exports.insert(export.name.clone(), export.clone());
@@ -359,7 +363,9 @@ impl VM {
             self.datas.push(data.init.to_vec());
 
             if matches!(data.mode, DataMode::Active) {
-                data.offset_expr.iter().for_each(|instr| self.exec_instr(instr));
+                for instr in &data.offset_expr {
+                    self.exec_instr(instr)?;
+                }
 
                 // 初始化完成后，此时栈顶就是内存起始地址
                 let addr = self.pop().as_mem_addr();
@@ -387,14 +393,18 @@ impl VM {
     }
 
     // 初始化全局段
-    fn init_global(&mut self, module: &Module) {
+    fn init_global(&mut self, module: &Module) -> VMState {
         for global in &module.global_sec {
-            global.init_expr.iter().for_each(|instr| self.exec_instr(instr));
+            for instr in &global.init_expr {
+                self.exec_instr(instr)?;
+            }
 
             let global_inst = GlobalInst::new(global.type_.clone(), self.pop());
 
             self.globals.push(Rc::new(RefCell::new(global_inst)));
         }
+
+        Ok(())
     }
 
     // 初始化表
@@ -407,16 +417,20 @@ impl VM {
 
         for elem in &module.elem_sec {
             let refs = match elem.init_is_expr() {
-                true => elem
-                    .init_expr
-                    .iter()
-                    .map(|expr| {
-                        // 其实只有 1 个指令
-                        expr.iter().for_each(|instr| self.exec_instr(instr));
+                true => {
+                    let mut refs: ValInsts = vec![];
 
-                        self.pop()
-                    })
-                    .collect(),
+                    for expr in &elem.init_expr {
+                        for instr in expr {
+                            self.exec_instr(instr)?;
+                        }
+
+                        refs.push(self.pop());
+                    }
+
+                    refs
+                }
+
                 false => elem
                     .func_idxs
                     .iter()
@@ -441,7 +455,9 @@ impl VM {
                     table_idx,
                     offset_expr: offset,
                 } => {
-                    offset.iter().for_each(|instr| self.exec_instr(instr));
+                    for instr in offset {
+                        self.exec_instr(instr)?;
+                    }
 
                     let offset = self.pop_u32();
                     let elem_inst = &mut self.elements[i];
