@@ -189,6 +189,9 @@ impl Memory for MemInst {
             _ => self.data.resize((new_size * PAGE_SIZE) as usize, 0),
         }
 
+        // 如果被其他模块导入，链接的时候将导致类型不匹配，所以需要进行变更
+        self.type_.min += 1;
+
         old_size as i32
     }
 }

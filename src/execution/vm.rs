@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use super::errors::{InstError, VMState};
+use super::errors::{InstError, LinkError, VMState};
 use super::importer::{Importer, MImporter};
 use super::inst::element::ElemInst;
 use super::inst::function::FuncInst;
@@ -50,7 +50,7 @@ impl VM {
 
         if let Some(maps) = maps {
             if !maps.is_empty() {
-                vm.resolve_imports(maps);
+                vm.resolve_imports(maps)?;
             }
         }
 
@@ -91,31 +91,43 @@ impl Importer for VM {
     }
 
     fn resolve_func(&self, name: &str) -> Option<RFuncInst> {
-        self.exports.get(name).map(|export| match export.desc {
-            ExportDesc::Func(idx) => Rc::clone(&self.funcs[idx as usize]),
-            _ => panic!("模块不存在名为 {} 的函数导出项", name),
-        })
+        match self.exports.get(name) {
+            Some(export) => match export.desc {
+                ExportDesc::Func(idx) => Some(Rc::clone(&self.funcs[idx as usize])),
+                _ => None,
+            },
+            None => None,
+        }
     }
 
     fn resolve_table(&self, name: &str) -> Option<RTableInst> {
-        self.exports.get(name).map(|export| match export.desc {
-            ExportDesc::Table(idx) => Rc::clone(&self.tables[idx as usize]),
-            _ => panic!("模块不存在名为 {} 的表导出项", name),
-        })
+        match self.exports.get(name) {
+            Some(export) => match export.desc {
+                ExportDesc::Table(idx) => Some(Rc::clone(&self.tables[idx as usize])),
+                _ => None,
+            },
+            None => None,
+        }
     }
 
     fn resolve_mem(&self, name: &str) -> Option<RMemInst> {
-        self.exports.get(name).map(|export| match export.desc {
-            ExportDesc::Mem(idx) => Rc::clone(&self.mems[idx as usize]),
-            _ => panic!("模块不存在名为 {} 的内存导出项", name),
-        })
+        match self.exports.get(name) {
+            Some(export) => match export.desc {
+                ExportDesc::Mem(idx) => Some(Rc::clone(&self.mems[idx as usize])),
+                _ => None,
+            },
+            None => None,
+        }
     }
 
     fn resolve_global(&self, name: &str) -> Option<RGlobalInst> {
-        self.exports.get(name).map(|export| match export.desc {
-            ExportDesc::Global(idx) => Rc::clone(&self.globals[idx as usize]),
-            _ => panic!("模块不存在名为 {} 的全局导出项", name),
-        })
+        match self.exports.get(name) {
+            Some(export) => match export.desc {
+                ExportDesc::Global(idx) => Some(Rc::clone(&self.globals[idx as usize])),
+                _ => None,
+            },
+            None => None,
+        }
     }
 
     fn call_by_name(&mut self, name: &str, args: ValInsts) -> ValInsts {
@@ -242,44 +254,80 @@ impl VM {
 /// 初始化的所有逻辑
 impl VM {
     // 处理导入
-    fn resolve_imports(&mut self, importers: MImporter) {
+    fn resolve_imports(&mut self, importers: MImporter) -> VMState {
         let module = Rc::clone(&self.module);
 
         for import in &module.import_sec {
             match importers.get(&import.module) {
-                Some(importer) => self.resolve_import(import, Rc::clone(importer)),
-                _ => panic!("找不到模块：{}", import.module),
+                Some(importer) => self.resolve_import(import, Rc::clone(importer))?,
+                _ => Err(LinkError::ModuleNotFound(import.module.clone()))?,
             }
         }
+
+        Ok(())
     }
 
-    fn resolve_import(&mut self, import: &ImportSeg, importer_: Rc<RefCell<dyn Importer>>) {
+    fn resolve_import(&mut self, import: &ImportSeg, importer_: Rc<RefCell<dyn Importer>>) -> VMState {
         let importer = importer_.borrow();
+        let module_name = importer.get_name().to_string();
+        let item_name = import.name.clone();
 
-        match import.desc {
-            ImportDesc::Func(_) => match importer.resolve_func(&import.name) {
+        match &import.desc {
+            ImportDesc::Func(idx) => match importer.resolve_func(&import.name) {
                 Some(func_inst) => {
                     let func_inst = func_inst.borrow();
+                    let sig = &self.module.type_sec[*idx as usize];
+
+                    if func_inst.get_type() != sig {
+                        Err(LinkError::IncompatibleImportType)?;
+                    }
 
                     {
                         let func_inst = func_inst.as_outer(Rc::clone(&importer_), &import.name);
 
                         self.funcs.push(func_inst);
+
+                        Ok(())
                     }
                 }
-                _ => panic!("找不到导入项：{:?}", import),
+                _ => Err(LinkError::ItemNotFound(module_name, item_name))?,
             },
-            ImportDesc::Table(_) => match importer.resolve_table(&import.name) {
-                Some(inst) => self.tables.push(inst),
-                _ => panic!("找不到导入项：{:?}", import),
+            ImportDesc::Table(type_) => match importer.resolve_table(&import.name) {
+                Some(inst) => {
+                    if inst.borrow().get_type().incompatible(type_) {
+                        Err(LinkError::IncompatibleImportType)?;
+                    }
+
+                    self.tables.push(inst);
+
+                    Ok(())
+                }
+                _ => Err(LinkError::ItemNotFound(module_name, item_name))?,
             },
-            ImportDesc::Mem(_) => match importer.resolve_mem(&import.name) {
-                Some(inst) => self.mems.push(inst),
-                _ => panic!("找不到导入项：{:?}", import),
+            ImportDesc::Mem(type_) => match importer.resolve_mem(&import.name) {
+                Some(inst) => {
+                    if inst.borrow().get_type().incompatible(type_) {
+                        println!("{:?} {:?}", inst.borrow().get_type(), type_);
+                        Err(LinkError::IncompatibleImportType)?;
+                    }
+
+                    self.mems.push(inst);
+
+                    Ok(())
+                }
+                _ => Err(LinkError::ItemNotFound(module_name, item_name))?,
             },
-            ImportDesc::Global(_) => match importer.resolve_global(&import.name) {
-                Some(inst) => self.globals.push(inst),
-                _ => panic!("找不到导入项：{:?}", import),
+            ImportDesc::Global(type_) => match importer.resolve_global(&import.name) {
+                Some(inst) => {
+                    if inst.borrow().get_type() != type_ {
+                        Err(LinkError::IncompatibleImportType)?;
+                    }
+
+                    self.globals.push(inst);
+
+                    Ok(())
+                }
+                _ => Err(LinkError::ItemNotFound(module_name, item_name))?,
             },
         }
     }

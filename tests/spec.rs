@@ -454,7 +454,7 @@ mod spec_test {
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    use wasm::binary::types::{FuncType, GlobalType, Limits, Mut, RefType, TableType, ValType};
+    use wasm::binary::types::{FuncType, GlobalType, Limits, RefType, TableType, ValType};
     use wasm::execution::importer::Importer;
     use wasm::execution::inst::function::FuncInst;
     use wasm::execution::inst::global::GlobalInst;
@@ -506,8 +506,9 @@ mod spec_test {
                 "print_f64" => FuncType::new_param(ValType::F64, 1),
                 "print_i32_f32" => FuncType::new_params(vec![ValType::I32, ValType::F32]),
                 "print_f64_f64" => FuncType::new_params(vec![ValType::F64, ValType::F64]),
-                _ => unimplemented!("SpecTestModule resolve_func：{}", name),
+                _ => return None,
             };
+
             let self_ = Rc::new(RefCell::new(*self));
             let inst = Rc::new(RefCell::new(FuncInst::from_importer(ft, self_, name)));
 
@@ -540,7 +541,7 @@ mod spec_test {
 
             let table = match name {
                 "table" => table_inst,
-                _ => todo!("resolve_global：{}", name),
+                _ => return None,
             };
 
             Some(Rc::new(RefCell::new(table)))
@@ -549,7 +550,7 @@ mod spec_test {
         fn resolve_mem(&self, name: &str) -> Option<wasm::execution::inst::RMemInst> {
             let memory = match name {
                 "memory" => MemInst::new(Limits { min: 1, max: Some(2) }),
-                _ => todo!("resolve_mem {:?}", name),
+                _ => return None,
             };
 
             Some(Rc::new(RefCell::new(memory)))
@@ -557,35 +558,11 @@ mod spec_test {
 
         fn resolve_global(&self, name: &str) -> Option<RGlobalInst> {
             let global_inst = match name {
-                "global_i32" => GlobalInst::new(
-                    GlobalType {
-                        val_type: ValType::I32,
-                        mut_: Mut::Const,
-                    },
-                    ValInst::I32(666),
-                ),
-                "global_i64" => GlobalInst::new(
-                    GlobalType {
-                        val_type: ValType::I64,
-                        mut_: Mut::Const,
-                    },
-                    ValInst::I64(666),
-                ),
-                "global_f32" => GlobalInst::new(
-                    GlobalType {
-                        val_type: ValType::F32,
-                        mut_: Mut::Const,
-                    },
-                    ValInst::F32(0.0),
-                ),
-                "global_f64" => GlobalInst::new(
-                    GlobalType {
-                        val_type: ValType::F64,
-                        mut_: Mut::Const,
-                    },
-                    ValInst::F64(0.0),
-                ),
-                _ => todo!("resolve_global：{}", name),
+                "global_i32" => GlobalInst::new(GlobalType::new(ValType::I32, false), ValInst::I32(666)),
+                "global_i64" => GlobalInst::new(GlobalType::new(ValType::I64, false), ValInst::I64(666)),
+                "global_f32" => GlobalInst::new(GlobalType::new(ValType::F32, false), ValInst::F32(0.0)),
+                "global_f64" => GlobalInst::new(GlobalType::new(ValType::F64, false), ValInst::F64(0.0)),
+                _ => return None,
             };
 
             Some(Rc::new(RefCell::new(global_inst)))
@@ -658,10 +635,6 @@ mod test {
 
             match command.type_ {
                 CommandType::Module(module) => {
-                    if module.filename == "linking.20.wasm" {
-                        println!("");
-                    }
-
                     let (vm_, name) = Module::create(&root, &module.filename, module.name, maps_copy);
                     let vm = vm_.expect("合法模块是不可能实例化失败的");
                     let vm_rc = Rc::new(RefCell::new(vm));
@@ -707,10 +680,18 @@ mod test {
                         }
                     }
                 }
-                // CommandType::AssertUnlinkable(module) => {
-                //     let name = Some("uninstantiable".to_string());
-                //     let (vm, name) = Module::create(&root, &module.filename, name, maps_copy);
-                // },
+                CommandType::AssertUnlinkable(module) => {
+                    if module.is_binary_module() {
+                        let name = Some("unlinkable".to_string());
+                        let (vm, _) = Module::create(&root, &module.filename, name, maps_copy);
+
+                        assert!(vm.is_err(), "不可能链接成功");
+
+                        if let Err(err) = vm {
+                            println!("err：{:#}\n", err);
+                        }
+                    }
+                }
                 CommandType::Register(register) => {
                     let vm = Module::get(register.name.clone(), maps_copy);
 

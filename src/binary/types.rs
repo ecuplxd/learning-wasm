@@ -56,7 +56,7 @@ impl ValType {
 
 pub type ResultType = Vec<ValType>;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct FuncType {
     pub params: ResultType,
     pub results: ResultType,
@@ -100,16 +100,6 @@ impl From<&BlockType> for FuncType {
     }
 }
 
-impl PartialEq for FuncType {
-    fn eq(&self, rhs: &Self) -> bool {
-        if self.params.len() != rhs.params.len() {
-            return false;
-        }
-
-        self.params.iter().zip(rhs.params.iter()).all(|(a, b)| a == b)
-    }
-}
-
 #[derive(Debug, Default, Clone)]
 pub struct Limits {
     pub min: u32,
@@ -118,19 +108,53 @@ pub struct Limits {
 
 pub type MemType = Limits;
 
+impl Limits {
+    // lhs 导入的，rhs 当前模块定义
+    pub fn incompatible(&self, rhs: &Self) -> bool {
+        // 导入的 min 不能比当前模块定义的要小
+        if self.min < rhs.min {
+            return true;
+        }
+
+        // 当前模块定义的最大不能小于导入的 max
+        match (self.max, rhs.max) {
+            (None, Some(_)) => true,
+            (Some(v1), Some(v2)) => v2 < v1,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct TableType {
     pub elem_type: RefType,
     pub limits: Limits,
 }
 
-#[derive(Debug, Clone)]
+impl TableType {
+    pub fn incompatible(&self, rhs: &Self) -> bool {
+        if self.elem_type != rhs.elem_type {
+            return true;
+        }
+
+        self.limits.incompatible(&rhs.limits)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct GlobalType {
     pub val_type: ValType,
     pub mut_: Mut,
 }
 
 impl GlobalType {
+    pub fn new(val_type: ValType, mut_: bool) -> Self {
+        Self {
+            val_type,
+            mut_: Mut::from(mut_),
+        }
+    }
+
     pub fn is_const(&self) -> bool {
         self.mut_ == Mut::Const
     }
@@ -149,6 +173,15 @@ impl Mut {
             0x00 => Ok(Self::Const),
             0x01 => Ok(Self::Var),
             _ => Err(DecodeErr::InvalidMut(v))?,
+        }
+    }
+}
+
+impl From<bool> for Mut {
+    fn from(v: bool) -> Self {
+        match v {
+            true => Self::Var,
+            false => Self::Const,
         }
     }
 }

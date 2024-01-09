@@ -18,6 +18,10 @@ impl GlobalInst {
         Self(type_, val)
     }
 
+    pub fn get_type(&self) -> &GlobalType {
+        &self.0
+    }
+
     pub fn value(&self) -> ValInst {
         self.1.clone()
     }
