@@ -1,21 +1,17 @@
 use crate::binary::types::GlobalType;
+use crate::execution::errors::{Trap, VMState};
 use crate::execution::types::ValInst;
 
 #[derive(Debug)]
 pub struct GlobalInst(GlobalType, ValInst);
 
 impl GlobalInst {
-    pub fn new(type_: GlobalType, val: ValInst) -> Self {
+    pub fn new(type_: GlobalType, val: ValInst) -> VMState<Self> {
         if type_.val_type != val.get_type() {
-            panic!(
-                "Global 类型 {:?} 和值 {:?} 类型 {:?} 不匹配",
-                type_.val_type,
-                val,
-                val.get_type()
-            );
+            Err(Trap::GlobalTypeNotEq)?
         }
 
-        Self(type_, val)
+        Ok(Self(type_, val))
     }
 
     pub fn get_type(&self) -> &GlobalType {
@@ -26,12 +22,14 @@ impl GlobalInst {
         self.1.clone()
     }
 
-    pub fn set(&mut self, value: ValInst) {
+    pub fn set(&mut self, value: ValInst) -> VMState {
         if self.0.is_const() {
-            panic!("该全局变量不可变，不能进行修改");
+            Err(Trap::GlobalVarConst)?;
         }
 
         self.0.val_type = value.get_type();
         self.1 = value;
+
+        Ok(())
     }
 }

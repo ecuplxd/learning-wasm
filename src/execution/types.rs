@@ -1,6 +1,7 @@
 use core::{fmt, simd};
 use std::simd::u8x16;
 
+use super::errors::{Trap, VMState};
 use super::inst::RFuncInst;
 use crate::binary::instruction::Lane16;
 use crate::binary::module::Module;
@@ -195,20 +196,20 @@ impl ValInst {
         }
     }
 
-    pub fn as_ref_inst(&self) -> &RefInst {
+    pub fn as_ref_inst(&self) -> VMState<&RefInst> {
         match self {
             ValInst::FuncRef(v) => match v {
-                Some(ref_inst) => ref_inst,
-                None => panic!("引用为空：{:?}", v),
+                Some(ref_inst) => Ok(ref_inst),
+                None => Err(Trap::NullRef)?,
             },
-            _ => panic!("不是一个有效的引用：{:?}", self),
+            _ => Err(Trap::InvalidRef)?,
         }
     }
 
-    pub fn as_func_inst(&self) -> &RFuncInst {
-        let ref_inst = self.as_ref_inst();
+    pub fn as_func_inst(&self) -> VMState<&RFuncInst> {
+        let ref_inst = self.as_ref_inst()?;
 
-        &ref_inst.1
+        Ok(&ref_inst.1)
     }
 
     pub fn as_mem_addr(&self) -> u64 {

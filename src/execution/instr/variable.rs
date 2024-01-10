@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use crate::execution::errors::VMState;
 use crate::execution::stack::operand::Operand;
 use crate::execution::vm::VM;
 
@@ -42,10 +43,10 @@ impl VM {
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-global-set
-    pub fn global_set(&mut self, idx: u32) {
+    pub fn global_set(&mut self, idx: u32) -> VMState {
         let v1 = self.pop();
         let global = &self.globals[idx as usize];
 
-        global.borrow_mut().set(v1);
+        global.borrow_mut().set(v1)
     }
 }

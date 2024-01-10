@@ -33,4 +33,37 @@ pub enum LinkError {
 pub enum Trap {
     #[error("Unreachable")]
     Unreachable,
+
+    #[error("找不到函数")]
+    FnNotFound,
+
+    #[error("frame 找不到可以执行的指令")]
+    NoOpcode,
+
+    #[error("该全局变量不可变，不能进行修改")]
+    GlobalVarConst,
+
+    #[error("外部函数没有可供执行的函数体")]
+    FnNoBody,
+
+    #[error("找不到 call 调用栈帧")]
+    CallFrameNotFount,
+
+    #[error("未定义的表元素")]
+    UninitTableElem,
+
+    #[error("间接调用参数不匹配")]
+    ArgNotEq,
+
+    #[error("类型不匹配")]
+    ValTypeNotEq,
+
+    #[error("Global 类型不匹配")]
+    GlobalTypeNotEq,
+
+    #[error("引用为空")]
+    NullRef,
+
+    #[error("不是一个有效的引用")]
+    InvalidRef,
 }

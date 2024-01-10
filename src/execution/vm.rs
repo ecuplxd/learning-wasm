@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use super::errors::{InstError, LinkError, VMState};
+use super::errors::{InstError, LinkError, Trap, VMState};
 use super::importer::{Importer, MImporter};
 use super::inst::element::ElemInst;
 use super::inst::function::FuncInst;
@@ -137,7 +137,7 @@ impl Importer for VM {
 
                 self.invoke(&func_inst, Some(args))
             }
-            None => panic!("找不到函数：{}", name),
+            None => Err(Trap::FnNotFound)?,
         }
     }
 }
@@ -224,7 +224,7 @@ impl VM {
             let frame = self.top_mut();
 
             match unsafe { frame.expr.as_ref() } {
-                Some(expr) if frame.pc == expr.len() => self.exit_block(),
+                Some(expr) if frame.pc == expr.len() => self.exit_block()?,
                 Some(expr) => {
                     let instr = &expr[frame.pc];
 
@@ -232,7 +232,7 @@ impl VM {
 
                     self.exec_instr(instr)?;
                 }
-                None => panic!("frame {:?} 找不到可以执行的指令", frame),
+                None => Err(Trap::NoOpcode)?,
             };
         }
 
@@ -399,7 +399,7 @@ impl VM {
                 self.exec_instr(instr)?;
             }
 
-            let global_inst = GlobalInst::new(global.type_.clone(), self.pop());
+            let global_inst = GlobalInst::new(global.type_.clone(), self.pop())?;
 
             self.globals.push(Rc::new(RefCell::new(global_inst)));
         }

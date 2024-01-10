@@ -464,7 +464,7 @@ mod spec_test {
     use wasm::execution::inst::memory::MemInst;
     use wasm::execution::inst::table::TableInst;
     use wasm::execution::inst::{RFuncInst, RGlobalInst};
-    use wasm::execution::types::{RefInst, ValInst, ValInsts};
+    use wasm::execution::types::{ValInst, ValInsts};
 
     #[derive(Clone, Copy)]
     pub struct SpecTestModule;
@@ -488,8 +488,6 @@ mod spec_test {
     func!(print_f64 => vec![]);
     func!(print_i32_f32 => vec![]);
     func!(print_f64_f64 => vec![]);
-    func!(ret_11 => vec![ValInst::I32(11)]);
-    func!(ret_22 => vec![ValInst::I32(22)]);
 
     fn new_func_inst(func_inst: FuncInst) -> RFuncInst {
         Rc::new(RefCell::new(func_inst))
@@ -519,28 +517,13 @@ mod spec_test {
         }
 
         fn resolve_table(&self, name: &str) -> Option<wasm::execution::inst::RTableInst> {
-            let self_ = Rc::new(RefCell::new(*self));
-
-            let ft = FuncType::new_result(ValType::I32);
-            let ret_11 = new_func_inst(FuncInst::from_importer(ft, self_.clone(), "ret_11"));
-
-            let ft = FuncType::new_result(ValType::I32);
-            let ret_22 = new_func_inst(FuncInst::from_importer(ft, self_, "ret_22"));
-
-            let mut table_inst = TableInst::new(TableType {
+            let table_inst = TableInst::new(TableType {
                 elem_type: RefType::FuncRef,
                 limits: Limits {
                     min: 10,
                     max: Some(20),
                 },
             });
-            let elems = vec![ret_11.clone(), ret_11.clone(), ret_22]
-                .into_iter()
-                .enumerate()
-                .map(|(i, item)| ValInst::new_func_ref(RefInst(i as u32, item)))
-                .collect::<Vec<_>>();
-
-            table_inst.set_elems(0, &elems);
 
             let table = match name {
                 "table" => table_inst,
@@ -568,7 +551,7 @@ mod spec_test {
                 _ => return None,
             };
 
-            Some(Rc::new(RefCell::new(global_inst)))
+            Some(Rc::new(RefCell::new(global_inst.unwrap())))
         }
 
         fn call_by_name(&mut self, name: &str, args: ValInsts) -> VMState<ValInsts> {
@@ -580,8 +563,6 @@ mod spec_test {
                 "print_f64" => SpecTestModule::print_f64(args),
                 "print_i32_f32" => SpecTestModule::print_i32_f32(args),
                 "print_f64_f64" => SpecTestModule::print_f64_f64(args),
-                "ret_11" => SpecTestModule::ret_11(args),
-                "ret_22" => SpecTestModule::ret_22(args),
                 _ => unimplemented!("SpecTestModule call_by_name：{}", name),
             };
 

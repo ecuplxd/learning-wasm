@@ -1,10 +1,9 @@
 use std::rc::Rc;
 
 use crate::binary::instruction::{Block, BlockType, BrTableArg, IfBlock};
-use crate::binary::section::{CodeSeg, Expr, LabelIdx};
+use crate::binary::section::{Expr, LabelIdx};
 use crate::binary::types::{FuncType, ValType};
 use crate::execution::errors::{Trap, VMState};
-use crate::execution::importer::Importer;
 use crate::execution::inst::function::{FuncInst, FuncInstKind};
 use crate::execution::stack::frame::{CallStack, Frame, LabelKind};
 use crate::execution::stack::operand::Operand;
@@ -30,10 +29,10 @@ impl VM {
         self.push_frame(frame);
     }
 
-    pub fn exit_block(&mut self) {
+    pub fn exit_block(&mut self) -> VMState {
         let frame = self.pop_frame();
 
-        self.clear_block(&frame);
+        self.clear_block(&frame)
     }
 
     pub fn reset_block(&mut self, frame: Frame) {
@@ -43,7 +42,7 @@ impl VM {
         self.push_n(results);
     }
 
-    pub fn clear_block(&mut self, frame: &Frame) {
+    pub fn clear_block(&mut self, frame: &Frame) -> VMState {
         let results = self.pop_n(frame.arity);
 
         self.pop_n(self.stack_size() - frame.sp);
@@ -55,9 +54,11 @@ impl VM {
             if let Some(call_frame) = call_frame {
                 self.local_idx = call_frame.sp;
             } else {
-                panic!("找不到 call 调用栈帧");
+                Err(Trap::CallFrameNotFount)?;
             }
         }
+
+        Ok(())
     }
 
     pub fn block_type_to_func_type(&mut self, block_type: &BlockType) -> FuncType {
@@ -76,60 +77,40 @@ impl VM {
     /// args 存在（外部手动调用的情况），则要将参数压栈，结果出栈
     pub fn invoke(&mut self, func_inst: &FuncInst, args: Option<ValInsts>) -> VMState<ValInsts> {
         let pop_push = args.is_some();
-        let type_ = func_inst.get_type().clone();
+        let fn_type = func_inst.get_type().clone();
 
         if pop_push {
-            self.push_n_and_check_type(&type_.params, args.unwrap());
+            self.push_n_and_check_type(&fn_type.params, args.unwrap());
         }
 
         match &func_inst.kind {
-            FuncInstKind::Inner(code) => unsafe {
-                self.invoke_inner_func(*code, &type_)?;
+            FuncInstKind::Inner(code_ptr) => match unsafe { code_ptr.as_ref() } {
+                Some(code) => {
+                    self.enter_block(LabelKind::Call, &fn_type, &code.body);
+                    self.push_n(code.init_local());
+
+                    self.start_loop()?;
+                }
+                None => Err(Trap::FnNoBody)?,
             },
             FuncInstKind::Outer(ctx, name) => {
                 // 存在嵌套调用，使用指针而不是 borrow_mut 绕过检查
                 let ptr = ctx.as_ptr();
                 let importer = unsafe { ptr.as_mut().unwrap() };
 
-                self.invoke_outer_func(importer, name, &type_)?;
+                let args = self.pop_n_and_check_type(&fn_type.params);
+                let rets = importer.call_by_name(name, args)?;
+
+                self.push_n_and_check_type(&fn_type.results, rets);
             }
         };
 
         let ret = match pop_push {
-            true => self.pop_n_and_check_type(&type_.results),
+            true => self.pop_n_and_check_type(&fn_type.results),
             false => vec![],
         };
 
         Ok(ret)
-    }
-
-    /// # Safety
-    ///
-    /// 调用内部函数 codeseg 必存在
-    pub unsafe fn invoke_inner_func(&mut self, code_ptr: *const CodeSeg, type_: &FuncType) -> VMState {
-        match unsafe { code_ptr.as_ref() } {
-            Some(code) => {
-                self.enter_block(LabelKind::Call, type_, &code.body);
-                self.push_n(code.init_local());
-
-                self.start_loop()
-            }
-            None => panic!("{:?} 没有可供执行的函数体", code_ptr),
-        }
-    }
-
-    pub fn invoke_outer_func(
-        &mut self,
-        importer: &mut dyn Importer,
-        name: &str,
-        type_: &FuncType,
-    ) -> VMState {
-        let args = self.pop_n_and_check_type(&type_.params);
-        let rets = importer.call_by_name(name, args)?;
-
-        self.push_n_and_check_type(&type_.results, rets);
-
-        Ok(())
     }
 
     pub fn pop_n_and_check_type(&mut self, val_types: &[ValType]) -> ValInsts {
@@ -187,7 +168,7 @@ impl VM {
     pub fn end(&mut self) {}
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-br
-    pub fn br(&mut self, l: LabelIdx) {
+    pub fn br(&mut self, l: LabelIdx) -> VMState {
         for _ in 0..l {
             self.pop_frame();
         }
@@ -199,19 +180,23 @@ impl VM {
                 self.reset_block(frame.basic_info());
                 self.top_mut().reset_pc();
             }
-            _ => self.exit_block(),
-        }
+            _ => self.exit_block()?,
+        };
+
+        Ok(())
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-br-if
-    pub fn br_if(&mut self, l: LabelIdx) {
+    pub fn br_if(&mut self, l: LabelIdx) -> VMState {
         if self.pop_bool() {
-            self.br(l);
+            self.br(l)?;
         }
+
+        Ok(())
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-br-table
-    pub fn br_table(&mut self, arg: &BrTableArg) {
+    pub fn br_table(&mut self, arg: &BrTableArg) -> VMState {
         let idx = self.pop_u32() as usize;
 
         match idx < arg.labels.len() {
@@ -221,10 +206,10 @@ impl VM {
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-return
-    pub fn return_(&mut self) {
+    pub fn return_(&mut self) -> VMState {
         let (_, label_idx) = self.top_call();
 
-        self.br(label_idx as u32);
+        self.br(label_idx as u32)
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-call
@@ -249,18 +234,18 @@ impl VM {
             let table = table.borrow();
 
             if i >= table.size() {
-                panic!("未定义的表元素：{}", i);
+                Err(Trap::UninitTableElem)?;
             }
 
             let module = Rc::clone(&self.module);
             let ft = &module.type_sec[type_idx as usize];
-            let func_inst = table.get_func_inst(i);
+            let func_inst = table.get_func_inst(i)?;
 
             {
                 let func_inst = func_inst.borrow();
 
                 if ft != func_inst.get_type() {
-                    panic!("间接调用参数 {:?} 不匹配，应为 {:?}", ft, func_inst.get_type());
+                    Err(Trap::ArgNotEq)?;
                 }
 
                 self.invoke(&func_inst, None)?;

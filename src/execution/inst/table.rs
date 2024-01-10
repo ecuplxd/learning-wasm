@@ -65,7 +65,7 @@ impl TableInst {
         old_size as i32
     }
 
-    pub fn get_func_inst(&self, idx: u32) -> &RFuncInst {
+    pub fn get_func_inst(&self, idx: u32) -> VMState<&RFuncInst> {
         let ref_val = &self.elems[idx as usize];
 
         ref_val.as_func_inst()
