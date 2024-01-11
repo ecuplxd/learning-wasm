@@ -1,5 +1,6 @@
 use std::ops::{Shl, Shr};
 
+use crate::execution::errors::{Trap, VMState};
 use crate::execution::stack::operand::Operand;
 use crate::execution::vm::VM;
 
@@ -472,32 +473,70 @@ impl VM {
         self.push_f64(v1 * v2);
     }
 
-    pub fn i32_div_u(&mut self) {
+    pub fn i32_div_u(&mut self) -> VMState {
         let v2 = self.pop_u32();
+
+        if v2 == 0 {
+            Err(Trap::DivZero)?;
+        }
+
         let v1 = self.pop_u32();
 
         self.push_u32(v1 / v2);
+
+        Ok(())
     }
 
-    pub fn i32_div_s(&mut self) {
+    pub fn i32_div_s(&mut self) -> VMState {
         let v2 = self.pop_i32();
-        let v1 = self.pop_i32();
 
-        self.push_i32(v1 / v2);
+        if v2 == 0 {
+            Err(Trap::DivZero)?;
+        }
+
+        let v1 = self.pop_i32();
+        let (v, o) = v1.overflowing_div(v2);
+
+        if o {
+            Err(Trap::IntegerOverflow)?;
+        }
+
+        self.push_i32(v);
+
+        Ok(())
     }
 
-    pub fn i64_div_u(&mut self) {
+    pub fn i64_div_u(&mut self) -> VMState {
         let v2 = self.pop_u64();
+
+        if v2 == 0 {
+            Err(Trap::DivZero)?;
+        }
+
         let v1 = self.pop_u64();
 
         self.push_u64(v1 / v2);
+
+        Ok(())
     }
 
-    pub fn i64_div_s(&mut self) {
+    pub fn i64_div_s(&mut self) -> VMState {
         let v2 = self.pop_i64();
-        let v1 = self.pop_i64();
 
-        self.push_i64(v1 / v2);
+        if v2 == 0 {
+            Err(Trap::DivZero)?;
+        }
+
+        let v1 = self.pop_i64();
+        let (v, o) = v1.overflowing_div(v2);
+
+        if o {
+            Err(Trap::IntegerOverflow)?;
+        }
+
+        self.push_i64(v);
+
+        Ok(())
     }
 
     pub fn f32_div(&mut self) {
@@ -514,40 +553,64 @@ impl VM {
         self.push_f64(v1 / v2);
     }
 
-    pub fn i32_rem_u(&mut self) {
+    pub fn i32_rem_u(&mut self) -> VMState {
         let v2 = self.pop_u32();
-        let v1 = self.pop_u32();
 
+        if v2 == 0 {
+            Err(Trap::DivZero)?;
+        }
+
+        let v1 = self.pop_u32();
         let (v, _) = v1.overflowing_rem(v2);
 
         self.push_u32(v);
+
+        Ok(())
     }
 
-    pub fn i32_rem_s(&mut self) {
+    pub fn i32_rem_s(&mut self) -> VMState {
         let v2 = self.pop_i32();
-        let v1 = self.pop_i32();
 
+        if v2 == 0 {
+            Err(Trap::DivZero)?;
+        }
+
+        let v1 = self.pop_i32();
         let (v, _) = v1.overflowing_rem(v2);
 
         self.push_i32(v);
+
+        Ok(())
     }
 
-    pub fn i64_rem_u(&mut self) {
+    pub fn i64_rem_u(&mut self) -> VMState {
         let v2 = self.pop_u64();
-        let v1 = self.pop_u64();
 
+        if v2 == 0 {
+            Err(Trap::DivZero)?;
+        }
+
+        let v1 = self.pop_u64();
         let (v, _) = v1.overflowing_rem(v2);
 
         self.push_u64(v);
+
+        Ok(())
     }
 
-    pub fn i64_rem_s(&mut self) {
+    pub fn i64_rem_s(&mut self) -> VMState {
         let v2 = self.pop_i64();
-        let v1 = self.pop_i64();
 
+        if v2 == 0 {
+            Err(Trap::DivZero)?;
+        }
+
+        let v1 = self.pop_i64();
         let (v, _) = v1.overflowing_rem(v2);
 
         self.push_i64(v);
+
+        Ok(())
     }
 
     pub fn i32_and(&mut self) {

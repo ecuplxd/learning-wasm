@@ -49,9 +49,6 @@ pub enum Trap {
     #[error("找不到 call 调用栈帧")]
     CallFrameNotFount,
 
-    #[error("未定义的表元素")]
-    UninitTableElem,
-
     #[error("间接调用参数不匹配")]
     ArgNotEq,
 
@@ -61,9 +58,18 @@ pub enum Trap {
     #[error("Global 类型不匹配")]
     GlobalTypeNotEq,
 
-    #[error("引用为空")]
-    NullRef,
+    #[error("未初始化")]
+    UnInitTableElem,
 
     #[error("不是一个有效的引用")]
     InvalidRef,
+
+    #[error("OutofRange")]
+    OutofRange,
+
+    #[error("IntegerOverflow")]
+    IntegerOverflow,
+
+    #[error("DivZero")]
+    DivZero,
 }

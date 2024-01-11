@@ -2,13 +2,13 @@ use super::section::{Expr, LabelIdx};
 use super::types::ValType;
 use crate::execution::value::v128;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MemoryArg {
     pub align: u32,
     pub offset: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Block {
     pub type_: BlockType,
     pub expr: Expr,
@@ -20,7 +20,7 @@ impl Block {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub enum BlockType {
     #[default]
     I32,
@@ -49,14 +49,14 @@ impl From<i32> for BlockType {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct IfBlock {
     pub type_: BlockType,
     pub if_expr: Expr,
     pub else_expr: Expr,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BrTableArg {
     pub labels: Vec<LabelIdx>,
     pub default: LabelIdx,
@@ -69,7 +69,7 @@ pub type Lane8 = [u8; 8];
 pub type Lane16 = [u8; 16];
 
 #[repr(u16)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Instruction {
     Unreachable = 0x00,                           // unreachable 0x00
     Nop = 0x01,                                   // nop 0x01

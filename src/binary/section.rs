@@ -151,7 +151,7 @@ pub enum ElementMode {
 }
 
 /// Code Section
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CodeSeg {
     /// 冗余校验
     pub size: u32,
@@ -177,7 +177,7 @@ impl CodeSeg {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Locals {
     pub n: u32,
     pub value_type: ValType,

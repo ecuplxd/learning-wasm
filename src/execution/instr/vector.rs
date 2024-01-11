@@ -25,17 +25,19 @@ macro_rules! saturate {
 
 impl VM {
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-load
-    pub fn v128_load(&mut self, memarg: &MemoryArg) {
+    pub fn v128_load(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let v = self.mem_read_v128(addr);
+        let v = self.mem_read_v128(addr)?;
 
         self.push_v128(v);
+
+        Ok(())
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-load-extend
-    pub fn v128_load8x8_s(&mut self, memarg: &MemoryArg) {
+    pub fn v128_load8x8_s(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_8(addr);
+        let data = self.mem_read_8(addr)?;
         let mut v = i16x8::splat(0);
 
         for i in 0..v.len() {
@@ -43,11 +45,13 @@ impl VM {
         }
 
         self.push_v128(v.v128());
+
+        Ok(())
     }
 
-    pub fn v128_load8x8_u(&mut self, memarg: &MemoryArg) {
+    pub fn v128_load8x8_u(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_8(addr);
+        let data = self.mem_read_8(addr)?;
         let mut v = u16x8::splat(0);
 
         for i in 0..v.len() {
@@ -55,142 +59,175 @@ impl VM {
         }
 
         self.push_v128(v.v128());
+
+        Ok(())
     }
 
-    pub fn v128_load16x4_s(&mut self, memarg: &MemoryArg) {
+    pub fn v128_load16x4_s(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
         let data = [
-            self.mem_read_i16(addr) as i32,
-            self.mem_read_i16(addr + 2) as i32,
-            self.mem_read_i16(addr + 4) as i32,
-            self.mem_read_i16(addr + 6) as i32,
+            self.mem_read_i16(addr)? as i32,
+            self.mem_read_i16(addr + 2)? as i32,
+            self.mem_read_i16(addr + 4)? as i32,
+            self.mem_read_i16(addr + 6)? as i32,
         ];
         let v = v128(data[0], data[1], data[2], data[3]);
 
         self.push_v128(v);
+
+        Ok(())
     }
 
-    pub fn v128_load16x4_u(&mut self, memarg: &MemoryArg) {
+    pub fn v128_load16x4_u(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
         let data = [
-            self.mem_read_i16(addr) as u16 as u32,
-            self.mem_read_i16(addr + 2) as u16 as u32,
-            self.mem_read_i16(addr + 4) as u16 as u32,
-            self.mem_read_i16(addr + 6) as u16 as u32,
+            self.mem_read_i16(addr)? as u16 as u32,
+            self.mem_read_i16(addr + 2)? as u16 as u32,
+            self.mem_read_i16(addr + 4)? as u16 as u32,
+            self.mem_read_i16(addr + 6)? as u16 as u32,
         ];
         let v = u32x4::from_array(data);
 
         self.push_v128(v.v128());
+
+        Ok(())
     }
 
-    pub fn v128_load32x2_s(&mut self, memarg: &MemoryArg) {
+    pub fn v128_load32x2_s(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = [self.mem_read_i32(addr) as i64, self.mem_read_i32(addr + 4) as i64];
+        let data = [
+            self.mem_read_i32(addr)? as i64,
+            self.mem_read_i32(addr + 4)? as i64,
+        ];
         let v = i64x2::from_array(data);
 
         self.push_v128(v.v128());
+
+        Ok(())
     }
 
-    pub fn v128_load32x2_u(&mut self, memarg: &MemoryArg) {
+    pub fn v128_load32x2_u(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
         let data = [
-            self.mem_read_i32(addr) as u32 as u64,
-            self.mem_read_i32(addr + 4) as u32 as u64,
+            self.mem_read_i32(addr)? as u32 as u64,
+            self.mem_read_i32(addr + 4)? as u32 as u64,
         ];
         let v = u64x2::from_array(data);
 
         self.push_v128(v.v128());
+
+        Ok(())
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-load-splat
-    pub fn v128_load8_splat(&mut self, memarg: &MemoryArg) {
+    pub fn v128_load8_splat(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let byte = self.mem_read(addr);
+        let byte = self.mem_read(addr)?;
         let v = u8x16::splat(byte);
 
         self.push_v128(v.v128());
+
+        Ok(())
     }
 
-    pub fn v128_load16_splat(&mut self, memarg: &MemoryArg) {
+    pub fn v128_load16_splat(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_i16(addr);
+        let data = self.mem_read_i16(addr)?;
         let v = i16x8::splat(data);
 
         self.push_v128(v.v128());
+
+        Ok(())
     }
 
-    pub fn v128_load32_splat(&mut self, memarg: &MemoryArg) {
+    pub fn v128_load32_splat(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_i32(addr);
+        let data = self.mem_read_i32(addr)?;
         let v = i32x4::splat(data);
 
         self.push_v128(v.v128());
+
+        Ok(())
     }
 
-    pub fn v128_load64_splat(&mut self, memarg: &MemoryArg) {
+    pub fn v128_load64_splat(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_i64(addr);
+        let data = self.mem_read_i64(addr)?;
         let v = i64x2::splat(data);
 
         self.push_v128(v.v128());
+
+        Ok(())
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-load-lane
-    pub fn v128_load8_lane(&mut self, memarg: &MemoryArg, laneidx: LaneIdx) {
+    pub fn v128_load8_lane(&mut self, memarg: &MemoryArg, laneidx: LaneIdx) -> VMState {
         let mut v = self.pop_v128().as_u8x16();
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read(addr);
+        let data = self.mem_read(addr)?;
 
         v[laneidx as usize] = data;
 
         self.push_v128(v.v128());
+
+        Ok(())
     }
 
-    pub fn v128_load16_lane(&mut self, memarg: &MemoryArg, laneidx: LaneIdx) {
+    pub fn v128_load16_lane(&mut self, memarg: &MemoryArg, laneidx: LaneIdx) -> VMState {
         let mut v = self.pop_v128().as_u16x8();
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_i16(addr);
+        let data = self.mem_read_i16(addr)?;
 
         v[laneidx as usize] = data as u16;
 
         self.push_v128(v.v128());
+
+        Ok(())
     }
 
-    pub fn v128_load32_lane(&mut self, memarg: &MemoryArg, laneidx: LaneIdx) {
+    pub fn v128_load32_lane(&mut self, memarg: &MemoryArg, laneidx: LaneIdx) -> VMState {
         let mut v = self.pop_v128().as_u32x4();
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_i32(addr);
+        let data = self.mem_read_i32(addr)?;
 
         v[laneidx as usize] = data as u32;
 
         self.push_v128(v.v128());
+
+        Ok(())
     }
 
-    pub fn v128_load64_lane(&mut self, memarg: &MemoryArg, laneidx: LaneIdx) {
+    pub fn v128_load64_lane(&mut self, memarg: &MemoryArg, laneidx: LaneIdx) -> VMState {
         let mut v = self.pop_v128().as_u64x2();
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_i64(addr);
+        let data = self.mem_read_i64(addr)?;
 
         v[laneidx as usize] = data as u64;
 
         self.push_v128(v.v128());
+
+        Ok(())
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-load-zero
-    pub fn v128_load32_zero(&mut self, memarg: &MemoryArg) {
+    pub fn v128_load32_zero(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_i32(addr) as u32;
+        let data = self.mem_read_i32(addr)? as u32;
         let v = u32x4::from_array([data, 0, 0, 0]);
 
         self.push_v128(v.v128());
+
+        Ok(())
     }
 
-    pub fn v128_load64_zero(&mut self, memarg: &MemoryArg) {
+    pub fn v128_load64_zero(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_i64(addr) as u64;
+        let data = self.mem_read_i64(addr)? as u64;
         let v = u64x2::from_array([data, 0]);
 
         self.push_v128(v.v128());
+
+        Ok(())
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-vec-splat

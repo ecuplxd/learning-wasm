@@ -1,7 +1,7 @@
 use super::memory::MAX_PAGE_SIZE;
 use super::RFuncInst;
 use crate::binary::types::TableType;
-use crate::execution::errors::{InstError, VMState};
+use crate::execution::errors::{Trap, VMState};
 use crate::execution::value::{ValInst, ValInsts};
 
 /// 表
@@ -29,8 +29,8 @@ impl TableInst {
         self.elems.len() as u32
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.elems.is_empty()
+    pub fn usize(&self) -> usize {
+        self.elems.len()
     }
 
     pub fn grow(&mut self, size: u32, ref_val: ValInst) -> i32 {
@@ -66,40 +66,50 @@ impl TableInst {
     }
 
     pub fn get_func_inst(&self, idx: u32) -> VMState<&RFuncInst> {
-        let ref_val = &self.elems[idx as usize];
+        let ref_val = self.get_elem(idx)?;
 
         ref_val.as_func_inst()
     }
 
-    pub fn get_elem(&self, idx: u32) -> &ValInst {
-        &self.elems[idx as usize]
+    pub fn get_elem(&self, idx: u32) -> VMState<&ValInst> {
+        if idx >= self.size() {
+            Err(Trap::OutofRange)?;
+        }
+
+        Ok(&self.elems[idx as usize])
     }
 
     pub fn set_elem(&mut self, idx: u32, ref_val: ValInst) -> VMState {
-        let idx = idx as usize;
-
-        if self.elems.is_empty() || idx >= self.elems.len() {
-            Err(InstError::OutofBoundTable)?;
+        if idx >= self.size() {
+            Err(Trap::OutofRange)?;
         }
 
-        self.elems[idx] = ref_val;
+        self.elems[idx as usize] = ref_val;
 
         Ok(())
     }
 
-    pub fn get_elems(&self, src: u32, size: u32) -> &[ValInst] {
+    pub fn get_elems(&self, src: u32, size: u32) -> VMState<&[ValInst]> {
         let src = src as usize;
         let size = size as usize;
 
-        &self.elems[src..src + size]
+        if (src + size) > self.usize() {
+            Err(Trap::OutofRange)?;
+        }
+
+        Ok(&self.elems[src..src + size])
     }
 
-    pub fn set_elems(&mut self, offset: u32, refs: &[ValInst]) {
-        let offset = offset as usize;
+    pub fn set_elems(&mut self, offset: u32, refs: &[ValInst]) -> VMState {
+        if (offset as usize) + refs.len() > self.usize() {
+            Err(Trap::OutofRange)?;
+        }
 
         for (i, ref_val) in refs.iter().enumerate() {
-            self.elems[i + offset] = ref_val.clone();
+            self.set_elem((i as u32) + offset, ref_val.clone())?;
         }
+
+        Ok(())
     }
 
     pub fn drop_(&mut self) {

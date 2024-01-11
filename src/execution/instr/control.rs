@@ -84,15 +84,12 @@ impl VM {
         }
 
         match &func_inst.kind {
-            FuncInstKind::Inner(_, code_ptr) => match unsafe { code_ptr.as_ref() } {
-                Some(code) => {
-                    self.enter_block(LabelKind::Call, &fn_type, &code.body);
-                    self.push_n(code.init_local());
+            FuncInstKind::Inner(_, code) => {
+                self.enter_block(LabelKind::Call, &fn_type, &code.body);
+                self.push_n(code.init_local());
 
-                    self.start_loop()?;
-                }
-                None => Err(Trap::FnNoBody)?,
-            },
+                self.start_loop()?;
+            }
             FuncInstKind::Outer(ctx, name) => {
                 // 存在嵌套调用，使用指针而不是 borrow_mut 绕过检查
                 let ptr = ctx.as_ptr();
@@ -232,11 +229,6 @@ impl VM {
 
         {
             let table = table.borrow();
-
-            if i >= table.size() {
-                Err(Trap::UninitTableElem)?;
-            }
-
             let module = Rc::clone(&self.module);
             let ft = &module.type_sec[type_idx as usize];
             let func_inst = table.get_func_inst(i)?;

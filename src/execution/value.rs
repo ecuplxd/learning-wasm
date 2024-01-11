@@ -188,7 +188,7 @@ impl ValInst {
         match self {
             ValInst::FuncRef(v) => match v {
                 Some(ref_inst) => Ok(ref_inst),
-                None => Err(Trap::NullRef)?,
+                None => Err(Trap::UnInitTableElem)?,
             },
             _ => Err(Trap::InvalidRef)?,
         }

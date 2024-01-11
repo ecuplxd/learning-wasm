@@ -1,114 +1,146 @@
 use crate::binary::instruction::MemoryArg;
-use crate::execution::errors::VMState;
+use crate::execution::errors::{VMState, Trap};
 use crate::execution::inst::memory::Memory;
 use crate::execution::stack::operand::Operand;
 use crate::execution::vm::VM;
 
 impl VM {
     pub fn get_mem_addr(&mut self, memarg: &MemoryArg) -> u64 {
-        (memarg.offset + self.pop_u32()) as u64
+        // cast 到 u64，避免溢出，方便做越界检查
+        let v = self.pop_u32() as u64;
+        let offset = memarg.offset as u64;
+
+        offset + v
     }
 }
 
 impl VM {
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-load
-    pub fn i32_load(&mut self, memarg: &MemoryArg) {
+    pub fn i32_load(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_i32(addr);
+        let data = self.mem_read_i32(addr)?;
 
         self.push_i32(data);
+
+        Ok(())
     }
 
-    pub fn i64_load(&mut self, memarg: &MemoryArg) {
+    pub fn i64_load(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_i64(addr);
+        let data = self.mem_read_i64(addr)?;
 
         self.push_i64(data);
+
+        Ok(())
     }
 
-    pub fn f32_load(&mut self, memarg: &MemoryArg) {
+    pub fn f32_load(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_f32(addr);
+        let data = self.mem_read_f32(addr)?;
 
         self.push_f32(data);
+
+        Ok(())
     }
 
-    pub fn f64_load(&mut self, memarg: &MemoryArg) {
+    pub fn f64_load(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_f64(addr);
+        let data = self.mem_read_f64(addr)?;
 
         self.push_f64(data);
+
+        Ok(())
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-loadn
-    pub fn i32_load8_s(&mut self, memarg: &MemoryArg) {
+    pub fn i32_load8_s(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read(addr);
+        let data = self.mem_read(addr)?;
 
         self.push_i32(data as i8 as i32);
+
+        Ok(())
     }
 
-    pub fn i32_load8_u(&mut self, memarg: &MemoryArg) {
+    pub fn i32_load8_u(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read(addr);
+        let data = self.mem_read(addr)?;
 
         self.push_u32(data as u32);
+
+        Ok(())
     }
 
-    pub fn i32_load16_s(&mut self, memarg: &MemoryArg) {
+    pub fn i32_load16_s(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_i16(addr);
+        let data = self.mem_read_i16(addr)?;
 
         self.push_i32(data as i32);
+
+        Ok(())
     }
 
-    pub fn i32_load16_u(&mut self, memarg: &MemoryArg) {
+    pub fn i32_load16_u(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_i16(addr);
+        let data = self.mem_read_i16(addr)?;
 
         self.push_u32(data as u16 as u32);
+
+        Ok(())
     }
 
-    pub fn i64_load8_s(&mut self, memarg: &MemoryArg) {
+    pub fn i64_load8_s(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read(addr);
+        let data = self.mem_read(addr)?;
 
         self.push_i64(data as i8 as i64);
+
+        Ok(())
     }
 
-    pub fn i64_load8_u(&mut self, memarg: &MemoryArg) {
+    pub fn i64_load8_u(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read(addr);
+        let data = self.mem_read(addr)?;
 
         self.push_u64(data as u64);
+
+        Ok(())
     }
 
-    pub fn i64_load16_s(&mut self, memarg: &MemoryArg) {
+    pub fn i64_load16_s(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_i16(addr);
+        let data = self.mem_read_i16(addr)?;
 
         self.push_i64(data as i64);
+
+        Ok(())
     }
 
-    pub fn i64_load16_u(&mut self, memarg: &MemoryArg) {
+    pub fn i64_load16_u(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_i16(addr);
+        let data = self.mem_read_i16(addr)?;
 
         self.push_u64(data as u16 as u64);
+
+        Ok(())
     }
 
-    pub fn i64_load32_s(&mut self, memarg: &MemoryArg) {
+    pub fn i64_load32_s(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_i32(addr);
+        let data = self.mem_read_i32(addr)?;
 
         self.push_i64(data as i64);
+
+        Ok(())
     }
 
-    pub fn i64_load32_u(&mut self, memarg: &MemoryArg) {
+    pub fn i64_load32_u(&mut self, memarg: &MemoryArg) -> VMState {
         let addr = self.get_mem_addr(memarg);
-        let data = self.mem_read_i32(addr);
+        let data = self.mem_read_i32(addr)?;
 
         self.push_u64(data as u32 as u64);
+
+        Ok(())
     }
 
     /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-store
@@ -205,6 +237,11 @@ impl VM {
         let dst = self.pop_u32() as u64;
 
         let data = &self.datas[segment as usize];
+
+        if (addr + n) > data.len() {
+            Err(Trap::OutofRange)?;
+        }
+
         let bytes = &data[addr..addr + n];
 
         self.mems[idx as usize].borrow_mut().mem_writes(dst, bytes)
@@ -221,7 +258,7 @@ impl VM {
         let addr = self.pop_u32() as u64;
         let dest = self.pop_u32() as u64;
 
-        let data = self.mems[src_idx as usize].borrow().mem_reads(addr, n);
+        let data = self.mems[src_idx as usize].borrow().mem_reads(addr, n)?;
 
         self.mems[dst_idx as usize].borrow_mut().mem_writes(dest, &data)
     }

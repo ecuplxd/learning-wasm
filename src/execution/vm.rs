@@ -182,7 +182,7 @@ impl CallStack for VM {
 
 /// 实现内存
 impl Memory for VM {
-    fn mem_reads(&self, addr: u64, n: u64) -> Vec<u8> {
+    fn mem_reads(&self, addr: u64, n: u64) -> VMState<Vec<u8>> {
         self.mems[self.mem_idx].borrow().mem_reads(addr, n)
     }
 
@@ -373,7 +373,7 @@ impl VM {
         for (i, ft_idx) in module.func_sec.iter().enumerate() {
             let ft = &module.type_sec[*ft_idx as usize];
             let code = &module.code_sec[i];
-            let func_inst = FuncInst::from_wasm(ft.clone(), i, code, self.get_name());
+            let func_inst = FuncInst::from_wasm(ft.clone(), i, Rc::new(code.clone()), self.get_name());
 
             self.funcs.push(Rc::new(RefCell::new(func_inst)));
         }
@@ -440,17 +440,17 @@ impl VM {
                 } => {
                     self.exec_instr(&offset[0])?;
 
-                    let offset = self.pop_u32();
+                    let offset = self.pop_u32() as usize;
                     let elem_inst = &mut self.elements[i];
                     let mut table = self.tables[*table_idx as usize].borrow_mut();
 
-                    // 很可能有 bug
-                    if offset > table.size() {
+                    // 为了区分实例化阶段和运行阶段的 access 错误
+                    if offset + elem_inst.refs.len() > (table.size() as usize) {
                         Err(InstError::OutofBoundTable)?;
                     }
 
                     for (i, ref_val) in elem_inst.refs.iter().enumerate() {
-                        table.set_elem(offset + (i as u32), ref_val.clone())?;
+                        table.set_elem((offset + i) as u32, ref_val.clone())?;
                     }
 
                     elem_inst.drop_();

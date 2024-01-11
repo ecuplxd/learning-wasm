@@ -111,13 +111,13 @@ mod models {
     #[derive(Debug, Deserialize)]
     pub struct AssertExhaustion {
         pub action: Action,
-        text: String,
+        pub text: String,
     }
 
     #[derive(Debug, Deserialize)]
     pub struct AssertTrap {
         pub action: Action,
-        text: String,
+        pub text: String,
     }
 
     #[derive(Debug, Deserialize)]
@@ -636,7 +636,15 @@ mod test {
                 }
                 CommandType::AssertReturn(action) => action.run(maps_copy),
                 // CommandType::AssertExhaustion(exhaustion) => todo!(),
-                // CommandType::AssertTrap(trap) => todo!(),
+                CommandType::AssertTrap(trap) => {
+                    let ret = trap.action.run(maps_copy);
+
+                    assert!(ret.is_err());
+
+                    if let Err(err) = ret {
+                        println!("AssertTrap：{} err：{:#}", trap.text, err);
+                    }
+                }
                 // CommandType::AssertInvalid(module) => todo!(),
                 CommandType::AssertMalformed(assert_module) => {
                     if assert_module.is_binary_module() {
@@ -645,7 +653,7 @@ mod test {
                         assert!(module.is_err(), "不可能解析成功");
 
                         if let Err(err) = module {
-                            println!("err：{:#}", err);
+                            println!("AssertMalformed：{} err：{:#}", assert_module.text, err);
                         }
                     }
                 }
@@ -657,7 +665,7 @@ mod test {
                         assert!(vm.is_err(), "不可能实例化成功");
 
                         if let Err(err) = vm {
-                            println!("err：{:#}\n", err);
+                            println!("AssertUninstantiable：{} err：{:#}\n", module.text, err);
                         }
                     }
                 }
@@ -669,7 +677,7 @@ mod test {
                         assert!(vm.is_err(), "不可能链接成功");
 
                         if let Err(err) = vm {
-                            println!("err：{:#}\n", err);
+                            println!("AssertUnlinkable：{} err：{:#}\n", module.text, err);
                         }
                     }
                 }

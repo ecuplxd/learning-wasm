@@ -17,12 +17,12 @@ pub struct FuncInst {
 }
 
 impl FuncInst {
-    pub fn from_wasm(ft: FuncType, i: usize, code: &CodeSeg, from: &str) -> Self {
+    pub fn from_wasm(ft: FuncType, i: usize, code: Rc<CodeSeg>, from: &str) -> Self {
         Self {
             id: random_str(7),
             type_: ft,
             from: from.to_string(),
-            kind: FuncInstKind::Inner(i, code as *const CodeSeg),
+            kind: FuncInstKind::Inner(i, code),
         }
     }
 
@@ -70,14 +70,14 @@ impl PartialEq for FuncInst {
 }
 
 pub enum FuncInstKind {
-    Inner(usize, *const CodeSeg),
+    Inner(usize, Rc<CodeSeg>),
     Outer(Rc<RefCell<dyn Importer>>, String),
 }
 
 impl fmt::Debug for FuncInstKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Inner(_, code) => write!(f, "{:?}", unsafe { &code.as_ref() }),
+            Self::Inner(_, code) => write!(f, "{:?}", code.as_ref()),
             Self::Outer(_, v2) => write!(f, "外部函数：{}", v2),
         }
     }
