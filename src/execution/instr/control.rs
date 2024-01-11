@@ -84,7 +84,7 @@ impl VM {
         }
 
         match &func_inst.kind {
-            FuncInstKind::Inner(code_ptr) => match unsafe { code_ptr.as_ref() } {
+            FuncInstKind::Inner(_, code_ptr) => match unsafe { code_ptr.as_ref() } {
                 Some(code) => {
                     self.enter_block(LabelKind::Call, &fn_type, &code.body);
                     self.push_n(code.init_local());

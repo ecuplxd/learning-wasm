@@ -162,7 +162,7 @@ mod into {
                     Err(_) => ValInst::ExternRef(None),
                 },
                 Const::Funcref(s) => match s.parse::<u32>() {
-                    Ok(idx) => todo!("将 Funcref({}) 转为 ValInst", idx), // 目前看来测试集里都是 null
+                    Ok(idx) => todo!("将 Funcref({}) 转为 ValInst", idx), // 目前（2.0）看来测试集里都是 null
                     Err(_) => ValInst::FuncRef(None),
                 },
                 Const::Exnref(_) => ValInst::NullRef,

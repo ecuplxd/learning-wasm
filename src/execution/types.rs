@@ -5,7 +5,7 @@ use super::errors::{Trap, VMState};
 use super::inst::RFuncInst;
 use crate::binary::instruction::Lane16;
 use crate::binary::module::Module;
-use crate::binary::section::{FuncIdx, MaybeU32};
+use crate::binary::section::MaybeU32;
 use crate::binary::types::ValType;
 
 pub trait ToV128 {
@@ -62,20 +62,8 @@ conversions! {
     (as_f64x2 = simd::f64x2)
 }
 
-#[derive(Clone)]
-pub struct RefInst(pub FuncIdx, pub RFuncInst);
-
-impl fmt::Debug for RefInst {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "原索引：{}，引用值：{:?}", self.0, self.1)
-    }
-}
-
-impl PartialEq for RefInst {
-    fn eq(&self, rhs: &Self) -> bool {
-        self.1.borrow().get_id() == rhs.1.borrow().get_id()
-    }
-}
+// 目前（2.0）只能是函数引用
+pub type RefInst = RFuncInst;
 
 #[derive(Clone)]
 pub enum ValInst {
@@ -207,9 +195,7 @@ impl ValInst {
     }
 
     pub fn as_func_inst(&self) -> VMState<&RFuncInst> {
-        let ref_inst = self.as_ref_inst()?;
-
-        Ok(&ref_inst.1)
+        self.as_ref_inst()
     }
 
     pub fn as_mem_addr(&self) -> u64 {

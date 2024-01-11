@@ -297,7 +297,7 @@ impl Decode for Expr {
                     Err(DecodeErr::LossDataCount("DataDrop".to_string()))?
                 }
                 _ => exprs.push(instr),
-            }
+            };
         }
 
         Ok((exprs, last_instr))

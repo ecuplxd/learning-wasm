@@ -12,7 +12,7 @@ use super::inst::{ExportMap, RFuncInst, RGlobalInst, RMemInst, RTableInst};
 use super::random_str;
 use super::stack::frame::{CallStack, Frame};
 use super::stack::operand::Operand;
-use super::types::{LoadFrom, RefInst, ValInst, ValInsts};
+use super::types::{LoadFrom, ValInst, ValInsts};
 use crate::binary::module::Module;
 use crate::binary::section::{DataMode, ElementMode, ExportDesc, ImportDesc, ImportSeg};
 
@@ -91,54 +91,42 @@ impl Importer for VM {
     }
 
     fn resolve_func(&self, name: &str) -> Option<RFuncInst> {
-        match self.exports.get(name) {
-            Some(export) => match export.desc {
-                ExportDesc::Func(idx) => Some(Rc::clone(&self.funcs[idx as usize])),
-                _ => None,
-            },
-            None => None,
-        }
+        self.exports.get(name).and_then(|export| match export.desc {
+            ExportDesc::Func(idx) => Some(Rc::clone(&self.funcs[idx as usize])),
+            _ => None,
+        })
     }
 
     fn resolve_table(&self, name: &str) -> Option<RTableInst> {
-        match self.exports.get(name) {
-            Some(export) => match export.desc {
-                ExportDesc::Table(idx) => Some(Rc::clone(&self.tables[idx as usize])),
-                _ => None,
-            },
-            None => None,
-        }
+        self.exports.get(name).and_then(|export| match export.desc {
+            ExportDesc::Table(idx) => Some(Rc::clone(&self.tables[idx as usize])),
+            _ => None,
+        })
     }
 
     fn resolve_mem(&self, name: &str) -> Option<RMemInst> {
-        match self.exports.get(name) {
-            Some(export) => match export.desc {
-                ExportDesc::Mem(idx) => Some(Rc::clone(&self.mems[idx as usize])),
-                _ => None,
-            },
-            None => None,
-        }
+        self.exports.get(name).and_then(|export| match export.desc {
+            ExportDesc::Mem(idx) => Some(Rc::clone(&self.mems[idx as usize])),
+            _ => None,
+        })
     }
 
     fn resolve_global(&self, name: &str) -> Option<RGlobalInst> {
-        match self.exports.get(name) {
-            Some(export) => match export.desc {
-                ExportDesc::Global(idx) => Some(Rc::clone(&self.globals[idx as usize])),
-                _ => None,
-            },
-            None => None,
-        }
+        self.exports.get(name).and_then(|export| match export.desc {
+            ExportDesc::Global(idx) => Some(Rc::clone(&self.globals[idx as usize])),
+            _ => None,
+        })
     }
 
     fn call_by_name(&mut self, name: &str, args: ValInsts) -> VMState<ValInsts> {
-        match self.resolve_func(name) {
-            Some(ptr) => {
-                let func_inst = ptr.borrow();
+        self.resolve_func(name).map_or_else(
+            || Err(Trap::FnNotFound)?,
+            move |func_inst| {
+                let func_inst = func_inst.borrow();
 
                 self.invoke(&func_inst, Some(args))
-            }
-            None => Err(Trap::FnNotFound)?,
-        }
+            },
+        )
     }
 }
 
@@ -363,9 +351,8 @@ impl VM {
             self.datas.push(data.init.to_vec());
 
             if matches!(data.mode, DataMode::Active) {
-                for instr in &data.offset_expr {
-                    self.exec_instr(instr)?;
-                }
+                // 其实只有一个指令
+                self.exec_instr(&data.offset_expr[0])?;
 
                 // 初始化完成后，此时栈顶就是内存起始地址
                 let addr = self.pop().as_mem_addr();
@@ -386,7 +373,7 @@ impl VM {
         for (i, ft_idx) in module.func_sec.iter().enumerate() {
             let ft = &module.type_sec[*ft_idx as usize];
             let code = &module.code_sec[i];
-            let func_inst = FuncInst::from_wasm(ft.clone(), code, self.get_id());
+            let func_inst = FuncInst::from_wasm(ft.clone(), i, code, self.get_name());
 
             self.funcs.push(Rc::new(RefCell::new(func_inst)));
         }
@@ -395,9 +382,7 @@ impl VM {
     // 初始化全局段
     fn init_global(&mut self, module: &Module) -> VMState {
         for global in &module.global_sec {
-            for instr in &global.init_expr {
-                self.exec_instr(instr)?;
-            }
+            self.exec_instr(&global.init_expr[0])?;
 
             let global_inst = GlobalInst::new(global.type_.clone(), self.pop())?;
 
@@ -421,9 +406,7 @@ impl VM {
                     let mut refs: ValInsts = vec![];
 
                     for expr in &elem.init_expr {
-                        for instr in expr {
-                            self.exec_instr(instr)?;
-                        }
+                        self.exec_instr(&expr[0])?;
 
                         refs.push(self.pop());
                     }
@@ -436,7 +419,7 @@ impl VM {
                     .iter()
                     .map(|idx| {
                         let func_inst = &self.funcs[*idx as usize];
-                        let ref_inst = RefInst(*idx, Rc::clone(func_inst));
+                        let ref_inst = Rc::clone(func_inst);
 
                         ValInst::new_ref(elem.type_, Some(ref_inst), Some(*idx))
                     })
@@ -455,27 +438,26 @@ impl VM {
                     table_idx,
                     offset_expr: offset,
                 } => {
-                    for instr in offset {
-                        self.exec_instr(instr)?;
-                    }
+                    self.exec_instr(&offset[0])?;
 
                     let offset = self.pop_u32();
                     let elem_inst = &mut self.elements[i];
                     let mut table = self.tables[*table_idx as usize].borrow_mut();
 
-                    for (i, ref_val) in elem_inst.refs.iter().enumerate() {
-                        table.set_elem(offset + (i as u32), ref_val.clone())?;
-                    }
-
+                    // 很可能有 bug
                     if offset > table.size() {
                         Err(InstError::OutofBoundTable)?;
+                    }
+
+                    for (i, ref_val) in elem_inst.refs.iter().enumerate() {
+                        table.set_elem(offset + (i as u32), ref_val.clone())?;
                     }
 
                     elem_inst.drop_();
                 }
                 ElementMode::Declarative => self.elements[i].drop_(),
                 ElementMode::Passive => continue,
-            }
+            };
         }
 
         Ok(())

@@ -17,23 +17,23 @@ pub struct FuncInst {
 }
 
 impl FuncInst {
-    pub fn from_wasm(ft: FuncType, code: &CodeSeg, from: &str) -> Self {
+    pub fn from_wasm(ft: FuncType, i: usize, code: &CodeSeg, from: &str) -> Self {
         Self {
             id: random_str(7),
             type_: ft,
             from: from.to_string(),
-            kind: FuncInstKind::Inner(code as *const CodeSeg),
+            kind: FuncInstKind::Inner(i, code as *const CodeSeg),
         }
     }
 
-    pub fn from_importer(ft: FuncType, ctx: Rc<RefCell<dyn Importer>>, name: &str) -> Self {
+    pub fn from_importer(ft: FuncType, ctx: Rc<RefCell<dyn Importer>>, fn_nae: &str) -> Self {
         let from = ctx.borrow().get_id().to_string();
 
         Self {
             id: random_str(7),
             type_: ft,
             from,
-            kind: FuncInstKind::Outer(ctx, name.to_string()),
+            kind: FuncInstKind::Outer(ctx, fn_nae.to_string()),
         }
     }
 
@@ -52,12 +52,10 @@ impl FuncInst {
     pub fn ret_types(&self) -> &Vec<ValType> {
         &self.type_.results
     }
-}
 
-impl FuncInst {
-    pub fn as_outer(&self, ctx: Rc<RefCell<dyn Importer>>, name: &str) -> RFuncInst {
+    pub fn as_outer(&self, ctx: Rc<RefCell<dyn Importer>>, fn_name: &str) -> RFuncInst {
         let ft = self.type_.clone();
-        let mut func_inst = Self::from_importer(ft, ctx, name);
+        let mut func_inst = Self::from_importer(ft, ctx, fn_name);
 
         func_inst.id = self.id.clone();
 
@@ -65,15 +63,21 @@ impl FuncInst {
     }
 }
 
+impl PartialEq for FuncInst {
+    fn eq(&self, rhs: &Self) -> bool {
+        self.id == rhs.id
+    }
+}
+
 pub enum FuncInstKind {
-    Inner(*const CodeSeg),
+    Inner(usize, *const CodeSeg),
     Outer(Rc<RefCell<dyn Importer>>, String),
 }
 
 impl fmt::Debug for FuncInstKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Inner(code) => write!(f, "{:?}", unsafe { &code.as_ref() }),
+            Self::Inner(_, code) => write!(f, "{:?}", unsafe { &code.as_ref() }),
             Self::Outer(_, v2) => write!(f, "外部函数：{}", v2),
         }
     }
