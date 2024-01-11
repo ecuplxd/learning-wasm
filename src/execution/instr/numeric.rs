@@ -835,52 +835,132 @@ impl VM {
     }
 
     /// 类型转换：浮点数截断 f32 -> i32
-    pub fn i32_trunc_f32_u(&mut self) {
+    pub fn i32_trunc_f32_u(&mut self) -> VMState {
         let v1 = self.pop_f32();
+
+        if v1.is_nan() {
+            Err(Trap::InvalidConversionToInteger)?;
+        }
+
+        if v1 <= -1.0f32 || v1 >= 4294967296.0f32 {
+            Err(Trap::IntegerOverflow)?;
+        }
 
         self.push_u32(v1.trunc() as u32);
+
+        Ok(())
     }
 
-    pub fn i32_trunc_f32_s(&mut self) {
+    pub fn i32_trunc_f32_s(&mut self) -> VMState {
         let v1 = self.pop_f32();
 
+        if v1.is_nan() {
+            Err(Trap::InvalidConversionToInteger)?;
+        }
+
+        if v1 < -2147483648.0f32 || v1 >= 2147483648.0f32 {
+            Err(Trap::IntegerOverflow)?;
+        }
+
         self.push_i32(v1.trunc() as i32);
+
+        Ok(())
     }
 
-    pub fn i32_trunc_f64_u(&mut self) {
+    pub fn i32_trunc_f64_u(&mut self) -> VMState {
         let v1 = self.pop_f64();
+
+        if v1.is_nan() {
+            Err(Trap::InvalidConversionToInteger)?;
+        }
+
+        if v1 <= -1. || v1 >= 4294967296. {
+            Err(Trap::IntegerOverflow)?;
+        }
 
         self.push_u32(v1.trunc() as u32);
+
+        Ok(())
     }
 
-    pub fn i32_trunc_f64_s(&mut self) {
+    pub fn i32_trunc_f64_s(&mut self) -> VMState {
         let v1 = self.pop_f64();
+
+        if v1.is_nan() {
+            Err(Trap::InvalidConversionToInteger)?;
+        }
+
+        if v1 <= -2147483649. || v1 >= 2147483648. {
+            Err(Trap::IntegerOverflow)?;
+        }
 
         self.push_i32(v1.trunc() as i32);
+
+        Ok(())
     }
 
-    pub fn i64_trunc_f32_u(&mut self) {
+    pub fn i64_trunc_f32_u(&mut self) -> VMState {
         let v1 = self.pop_f32();
 
+        if v1.is_nan() {
+            Err(Trap::InvalidConversionToInteger)?;
+        }
+
+        if v1 <= -1.0f32 || v1 >= 18446744073709551616.0f32 {
+            Err(Trap::IntegerOverflow)?;
+        }
+
         self.push_u64(v1.trunc() as u64);
+
+        Ok(())
     }
 
-    pub fn i64_trunc_f32_s(&mut self) {
+    pub fn i64_trunc_f32_s(&mut self) -> VMState {
         let v1 = self.pop_f32();
 
+        if v1.is_nan() {
+            Err(Trap::InvalidConversionToInteger)?;
+        }
+
+        if v1 < -9223372036854775808.0f32 || v1 >= 9223372036854775808.0f32 {
+            Err(Trap::IntegerOverflow)?;
+        }
+
         self.push_i64(v1.trunc() as i64);
+
+        Ok(())
     }
 
-    pub fn i64_trunc_f64_u(&mut self) {
+    pub fn i64_trunc_f64_u(&mut self) -> VMState {
         let v1 = self.pop_f64();
+
+        if v1.is_nan() {
+            Err(Trap::InvalidConversionToInteger)?;
+        }
+
+        if v1 <= -1. || v1 >= 18446744073709551616. {
+            Err(Trap::IntegerOverflow)?;
+        }
 
         self.push_u64(v1.trunc() as u64);
+
+        Ok(())
     }
 
-    pub fn i64_trunc_f64_s(&mut self) {
+    pub fn i64_trunc_f64_s(&mut self) -> VMState {
         let v1 = self.pop_f64();
 
+        if v1.is_nan() {
+            Err(Trap::InvalidConversionToInteger)?;
+        }
+
+        if v1 < -9223372036854775808. || v1 >= 9223372036854775808. {
+            Err(Trap::IntegerOverflow)?;
+        }
+
         self.push_i64(v1.trunc() as i64);
+
+        Ok(())
     }
 
     /// 类型转换：浮点数精度调整

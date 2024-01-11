@@ -10,7 +10,7 @@ pub enum InstError {
     #[error("表越界访问")]
     OutofBoundTable,
 
-    #[error("Unreachable")]
+    #[error("unreachable")]
     Unreachable,
 }
 
@@ -31,7 +31,7 @@ pub enum LinkError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Trap {
-    #[error("Unreachable")]
+    #[error("unreachable")]
     Unreachable,
 
     #[error("找不到函数")]
@@ -64,12 +64,15 @@ pub enum Trap {
     #[error("不是一个有效的引用")]
     InvalidRef,
 
-    #[error("OutofRange")]
+    #[error("out of range")]
     OutofRange,
 
-    #[error("IntegerOverflow")]
+    #[error("integer overflow")]
     IntegerOverflow,
 
-    #[error("DivZero")]
+    #[error("div zero")]
     DivZero,
+
+    #[error("invalid conversion to integer")]
+    InvalidConversionToInteger,
 }

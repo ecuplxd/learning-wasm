@@ -271,7 +271,6 @@ Jan 11 14:00:10.155  INFO cargo_tarpaulin::report: Coverage Results:
 
 # todo
 
-- trap -> AssertTrap
 - validate -> AssertInvalid
 - AssertExhaustion
 - wasi
