@@ -7,7 +7,7 @@ use crate::binary::instruction::{Lane16, LaneIdx, MemoryArg};
 use crate::execution::errors::VMState;
 use crate::execution::inst::memory::Memory;
 use crate::execution::stack::operand::Operand;
-use crate::execution::types::{v128, ToV128};
+use crate::execution::value::{v128, ToV128};
 use crate::execution::vm::VM;
 
 macro_rules! saturate {

@@ -1,6 +1,6 @@
 use crate::binary::types::GlobalType;
 use crate::execution::errors::{Trap, VMState};
-use crate::execution::types::ValInst;
+use crate::execution::value::ValInst;
 
 #[derive(Debug)]
 pub struct GlobalInst(GlobalType, ValInst);

@@ -3,7 +3,7 @@ use rand::{thread_rng, Rng};
 
 mod instr;
 mod stack;
-pub mod types;
+pub mod value;
 
 pub mod errors;
 pub mod importer;

@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use super::errors::VMState;
 use super::inst::{RFuncInst, RGlobalInst, RMemInst, RTableInst};
-use super::types::ValInsts;
+use super::value::ValInsts;
 
 pub trait Importer {
     fn get_name(&self) -> &str;

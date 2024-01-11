@@ -2,7 +2,7 @@ use super::memory::MAX_PAGE_SIZE;
 use super::RFuncInst;
 use crate::binary::types::TableType;
 use crate::execution::errors::{InstError, VMState};
-use crate::execution::types::{ValInst, ValInsts};
+use crate::execution::value::{ValInst, ValInsts};
 
 /// 表
 #[derive(Debug, Default)]

@@ -4,7 +4,7 @@ use crate::binary::instruction::{Lane16, Lane8};
 use crate::binary::section::MaybeU32;
 use crate::binary::types::MemType;
 use crate::execution::errors::{InstError, VMState};
-use crate::execution::types::v128;
+use crate::execution::value::v128;
 
 pub const PAGE_SIZE: u32 = 65536;
 pub const MAX_PAGE_SIZE: u32 = 65536;

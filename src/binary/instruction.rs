@@ -1,6 +1,6 @@
 use super::section::{Expr, LabelIdx};
 use super::types::ValType;
-use crate::execution::types::v128;
+use crate::execution::value::v128;
 
 #[derive(Debug)]
 pub struct MemoryArg {

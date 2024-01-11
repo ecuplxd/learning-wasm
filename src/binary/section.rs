@@ -2,7 +2,7 @@ use super::errors::DecodeErr;
 use super::instruction::Instruction;
 use super::reader::DecodeResult;
 use super::types::{GlobalType, MemType, TableType, ValType};
-use crate::execution::types::{ValInst, ValInsts};
+use crate::execution::value::{ValInst, ValInsts};
 
 /// Indices
 pub type TypeIdx = u32;

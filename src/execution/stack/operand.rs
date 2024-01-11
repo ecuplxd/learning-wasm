@@ -1,4 +1,4 @@
-use crate::execution::types::{v128, ValInst, ValInsts};
+use crate::execution::value::{v128, ValInst, ValInsts};
 
 pub trait Operand {
     fn stack_size(&self) -> usize;

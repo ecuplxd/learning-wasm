@@ -5,7 +5,7 @@ use std::simd::u8x16;
 use super::instruction::Lane16;
 use super::leb128;
 use super::section::DataCountSeg;
-use crate::execution::types::{v128, ToV128};
+use crate::execution::value::{v128, ToV128};
 
 pub type DecodeResult<T> = Result<T, Box<dyn Error>>;
 

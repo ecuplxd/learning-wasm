@@ -7,7 +7,7 @@ use crate::execution::errors::{Trap, VMState};
 use crate::execution::inst::function::{FuncInst, FuncInstKind};
 use crate::execution::stack::frame::{CallStack, Frame, LabelKind};
 use crate::execution::stack::operand::Operand;
-use crate::execution::types::ValInsts;
+use crate::execution::value::ValInsts;
 use crate::execution::vm::VM;
 
 /// 实现块逻辑

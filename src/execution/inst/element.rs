@@ -1,5 +1,5 @@
 use crate::binary::types::ValType;
-use crate::execution::types::ValInsts;
+use crate::execution::value::ValInsts;
 
 #[derive(Debug)]
 pub struct ElemInst {

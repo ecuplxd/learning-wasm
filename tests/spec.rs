@@ -146,7 +146,7 @@ mod into {
     use std::simd::{f32x4, f64x2, u16x8, u32x4, u64x2, u8x16};
 
     use wasm::execution::importer::Importer;
-    use wasm::execution::types::{v128, ToV128, ValInst};
+    use wasm::execution::value::{v128, ToV128, ValInst};
 
     use crate::models::{Const, LaneType, SIMD};
 
@@ -248,7 +248,7 @@ mod run {
     use wasm::binary::reader::DecodeResult;
     use wasm::execution::errors::VMState;
     use wasm::execution::importer::{Importer, MImporter};
-    use wasm::execution::types::{LoadFrom, ValInst};
+    use wasm::execution::value::{LoadFrom, ValInst};
     use wasm::execution::vm::VM;
 
     use crate::models::{
@@ -464,7 +464,7 @@ mod spec_test {
     use wasm::execution::inst::memory::MemInst;
     use wasm::execution::inst::table::TableInst;
     use wasm::execution::inst::{RFuncInst, RGlobalInst};
-    use wasm::execution::types::{ValInst, ValInsts};
+    use wasm::execution::value::{ValInst, ValInsts};
 
     #[derive(Clone, Copy)]
     pub struct SpecTestModule;

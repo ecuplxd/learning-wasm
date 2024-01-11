@@ -12,7 +12,7 @@ use super::inst::{ExportMap, RFuncInst, RGlobalInst, RMemInst, RTableInst};
 use super::random_str;
 use super::stack::frame::{CallStack, Frame};
 use super::stack::operand::Operand;
-use super::types::{LoadFrom, ValInst, ValInsts};
+use super::value::{LoadFrom, ValInst, ValInsts};
 use crate::binary::module::Module;
 use crate::binary::section::{DataMode, ElementMode, ExportDesc, ImportDesc, ImportSeg};
 

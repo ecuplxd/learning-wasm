@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::execution::stack::operand::Operand;
-use crate::execution::types::ValInst;
+use crate::execution::value::ValInst;
 use crate::execution::vm::VM;
 
 impl VM {
